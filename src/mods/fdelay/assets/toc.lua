@@ -47,6 +47,10 @@ return {
       title = "Manual Grain Delay",
       moduleName = "ManualGrainDelay",
       keywords = "delay, effect, pitch"
+    }, {
+      title = "Manual Grains",
+      moduleName = "ManualGrains",
+      keywords = "effect, pitch"
     }
   }
 }
