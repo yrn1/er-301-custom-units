@@ -48,6 +48,8 @@ function ManualGrains:onLoadGraph(channelCount)
   local tuneRange = self:addObject("tuneRange", app.MinMax())
   local speedRange = self:addObject("speedRange", app.MinMax())
 
+   connect(self, "In1", head, "Left In")
+
   -- Pitch and Linear FM
   connect(tune, "Out", pitch, "In")
   connect(tune, "Out", tuneRange, "In")
@@ -69,6 +71,7 @@ function ManualGrains:onLoadGraph(channelCount)
   self:addMonoBranch("squash", squash, "In", squash, "Out")
 
   if channelCount > 1 then
+    connect(self, "In2", head, "Right In")
     local pan = self:addObject("pan", app.ParameterAdapter())
     tie(head, "Pan", pan, "Out")
     connect(head, "Right Out", self, "Out2")
@@ -79,167 +82,16 @@ end
 
 function ManualGrains:serialize()
   local t = Unit.serialize(self)
-  local sample = self.sample
-  if sample then t.sample = SamplePool.serializeSample(sample) end
   return t
 end
 
 function ManualGrains:deserialize(t)
   Unit.deserialize(self, t)
-  if t.sample then
-    local sample = SamplePool.deserializeSample(t.sample, self.chain)
-    if sample then
-      self:setSample(sample)
-    else
-      local Utils = require "Utils"
-      app.logError("%s:deserialize: failed to load sample.", self)
-      Utils.pp(t.sample)
-    end
-  end
 end
 
-function ManualGrains:setSample(sample)
-  if self.sample then
-    self.sample:release(self)
-    self.sample = nil
-  end
-
-  -- construct a new slices object when the sample changes
-  if sample == nil or sample:getChannelCount() == 0 then
-    self.objects.head:setSample(nil)
-  else
-    self.objects.head:setSample(sample.pSample)
-    self.sample = sample
-    self.sample:claim(self)
-  end
-
-  if self.sampleEditor then self.sampleEditor:setSample(sample) end
-  self:notifyControls("setSample", sample)
-end
-
-function ManualGrains:doDetachSample()
-  local Overlay = require "Overlay"
-  Overlay.flashMainMessage("Sample detached.")
-  self:setSample()
-end
-
-function ManualGrains:doAttachSampleFromCard()
-  local task = function(sample)
-    if sample then
-      local Overlay = require "Overlay"
-      Overlay.flashMainMessage("Attached sample: %s", sample.name)
-      self:setSample(sample)
-    end
-  end
-  local Pool = require "Sample.Pool"
-  Pool.chooseFileFromCard(self.loadInfo.id, task)
-end
-
-function ManualGrains:doAttachSampleFromPool()
-  local chooser = SamplePoolInterface(self.loadInfo.id, "choose")
-  chooser:setDefaultChannelCount(self.channelCount)
-  chooser:highlight(self.sample)
-  local task = function(sample)
-    if sample then
-      local Overlay = require "Overlay"
-      Overlay.flashMainMessage("Attached sample: %s", sample.name)
-      self:setSample(sample)
-    end
-  end
-  chooser:subscribe("done", task)
-  chooser:show()
-end
-
-function ManualGrains:showSampleEditor()
-  if self.sample then
-    if self.sampleEditor == nil then
-      self.sampleEditor = SampleEditor(self, self.objects.head)
-      self.sampleEditor:setSample(self.sample)
-      self.sampleEditor:setPointerLabel("G")
-    end
-    self.sampleEditor:show()
-  else
-    local Overlay = require "Overlay"
-    Overlay.flashMainMessage("You must first select a sample.")
-  end
-end
-
-local menu = {
-  "sampleHeader",
-  "selectFromCard",
-  "selectFromPool",
-  "detachBuffer",
-  "editSample"
-}
-
-function ManualGrains:onShowMenu(objects, branches)
-  local controls = {}
-
-  controls.sampleHeader = MenuHeader {
-    description = "Sample Menu"
-  }
-
-  controls.selectFromCard = Task {
-    description = "Select from Card",
-    task = function()
-      self:doAttachSampleFromCard()
-    end
-  }
-
-  controls.selectFromPool = Task {
-    description = "Select from Pool",
-    task = function()
-      self:doAttachSampleFromPool()
-    end
-  }
-
-  controls.detachBuffer = Task {
-    description = "Detach Buffer",
-    task = function()
-      self:doDetachSample()
-    end
-  }
-
-  controls.editSample = Task {
-    description = "Edit Buffer",
-    task = function()
-      self:showSampleEditor()
-    end
-  }
-
-  local sub = {}
-  if self.sample then
-    sub[1] = {
-      position = app.GRID5_LINE1,
-      justify = app.justifyLeft,
-      text = "Attached Sample:"
-    }
-    sub[2] = {
-      position = app.GRID5_LINE2,
-      justify = app.justifyLeft,
-      text = "+ " .. self.sample:getFilenameForDisplay(24)
-    }
-    sub[3] = {
-      position = app.GRID5_LINE3,
-      justify = app.justifyLeft,
-      text = "+ " .. self.sample:getDurationText()
-    }
-    sub[4] = {
-      position = app.GRID5_LINE4,
-      justify = app.justifyLeft,
-      text = string.format("+ %s %s %s", self.sample:getChannelText(),
-                           self.sample:getSampleRateText(),
-                           self.sample:getMemorySizeText())
-    }
-  else
-    sub[1] = {
-      position = app.GRID5_LINE3,
-      justify = app.justifyCenter,
-      text = "No sample attached."
-    }
-  end
-
-  return controls, menu, sub
+function ManualGrains:setMaxDelayTime(secs)
+  local requested = math.floor(secs + 0.5)
+  self.objects.head:setMaxDelay(requested)
 end
 
 local stereoViews = {
@@ -406,7 +258,6 @@ function ManualGrains:onLoadViews(objects, branches)
 end
 
 function ManualGrains:onRemove()
-  self:setSample(nil)
   Unit.onRemove(self)
 end
 

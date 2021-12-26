@@ -16,11 +16,14 @@ namespace fdelay
     addParameter(mPan);
     addParameter(mDuration);
     addParameter(mStart);
+    addInput(mLeftInput);
+    addInput(mRightInput);
     addInput(mTrigger);
     addOutput(mLeftOutput);
     addOutput(mRightOutput);
     addParameter(mSquash);
     setMaximumGrainCount(grainCount);
+    setMaxDelay(5.0f);
   }
 
   GranularHead::~GranularHead()
@@ -83,17 +86,26 @@ namespace fdelay
     }
   }
 
-  void GranularHead::setSample(od::Sample *sample)
+  void GranularHead::setMaxDelay(float secs)
   {
     mEnabled = false;
     stopAllGrains();
 
-    Base::setSample(sample);
+    if (secs < 0.0f) {
+      secs = 0.0f;
+    }
+    mMaxDelayInSeconds = secs;
+    mMaxDelayInSamples = (int)(secs * globalConfig.sampleRate);
+    mSampleFifo.setSampleRate(globalConfig.sampleRate);
+    mSampleFifo.allocateBuffer(mOutputChannelCount, mMaxDelayInSamples + 2 * globalConfig.frameLength);
+    mSampleFifo.zeroAndFill();
+
+    Base::setSample(mSampleFifo.getSample());
 
     if (mpSample)
     {
       mpStart = mpSample->mpData;
-      mSpeedAdjustment = sample->mSampleRate * globalConfig.samplePeriod;
+      mSpeedAdjustment = mpSample->mSampleRate * globalConfig.samplePeriod;
 
       if (mOutputChannelCount == 2 && mpSample->mChannelCount == 2)
       {
@@ -116,18 +128,6 @@ namespace fdelay
         {
           grain.setSample(0);
         }
-      }
-    }
-    else
-    {
-      for (StereoGrain &grain : mStereoGrains)
-      {
-        grain.setSample(0);
-      }
-
-      for (MonoGrain &grain : mMonoGrains)
-      {
-        grain.setSample(0);
       }
     }
 
@@ -193,12 +193,17 @@ namespace fdelay
 
   void GranularHead::process()
   {
+    mSampleFifo.pop(FRAMELENGTH);
+
     switch (mOutputChannelCount)
     {
     case 1:
+      mSampleFifo.pushMono(mLeftInput.buffer(), FRAMELENGTH);
       memset(mLeftOutput.buffer(), 0, globalConfig.frameLength * sizeof(float));
       break;
     case 2:
+      // TODO Stereo?
+      mSampleFifo.pushMono(mLeftInput.buffer(), FRAMELENGTH);
       memset(mLeftOutput.buffer(), 0, globalConfig.frameLength * sizeof(float));
       memset(mRightOutput.buffer(), 0, globalConfig.frameLength * sizeof(float));
       break;
@@ -254,13 +259,15 @@ namespace fdelay
             p = 0.0f;
           }
           int d = mDuration.value() * globalConfig.sampleRate;
+          // translate to fifo offset
+          int offset = mSampleFifo.offsetToRecent(mMaxDelayInSamples + globalConfig.frameLength);
           if (d < 0)
           {
-            grain->init(mCurrentIndex, -d, -1.0f * speed[i], g, p);
+            grain->init(mCurrentIndex + offset, -d, -1.0f * speed[i], g, p);
           }
           else
           {
-            grain->init(mCurrentIndex, d, speed[i], g, p);
+            grain->init(mCurrentIndex + offset, d, speed[i], g, p);
           }
           grain->setSquash(mSquash.value());
         }
@@ -337,13 +344,15 @@ namespace fdelay
           float g = mGain.value() * mGainCompensation[mFreeStereoGrains.size()];
           float p = MAX(-1.0f, MIN(1.0f, mPan.value()));
           int d = mDuration.value() * globalConfig.sampleRate;
+          // translate to fifo offset
+          int offset = mSampleFifo.offsetToRecent(mMaxDelayInSamples + globalConfig.frameLength);
           if (d < 0)
           {
-            grain->init(mCurrentIndex, -d, -1.0f * speed[i], g, p);
+            grain->init(mCurrentIndex + offset, -d, -1.0f * speed[i], g, p);
           }
           else
           {
-            grain->init(mCurrentIndex, d, speed[i], g, p);
+            grain->init(mCurrentIndex + offset, d, speed[i], g, p);
           }
           grain->setSquash(mSquash.value());
         }

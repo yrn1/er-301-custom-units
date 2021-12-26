@@ -3,6 +3,7 @@
 #pragma once
 
 #include <od/objects/heads/Head.h>
+#include <od/audio/SampleFifo.h>
 #include <Grain.h>
 #include <MonoGrain.h>
 #include <StereoGrain.h>
@@ -17,12 +18,14 @@ namespace fdelay
     GranularHead(int channelCount, int grainCount = 16);
     virtual ~GranularHead();
 
-    virtual void setSample(od::Sample *sample);
+    void setMaxDelay(float secs);
 
 #ifndef SWIGLUA
     virtual void process();
     od::Outlet mLeftOutput{"Left Out"};
     od::Outlet mRightOutput{"Right Out"};
+    od::Inlet mLeftInput{"Left In"};
+    od::Inlet mRightInput{"Right In"};
     od::Inlet mTrigger{"Trigger"};
     od::Inlet mSpeed{"Speed"};
     od::Parameter mDuration{"Duration"};
@@ -60,8 +63,11 @@ namespace fdelay
     void stopAllGrains();
 
   private:
+    od::SampleFifo mSampleFifo;
     typedef Head Base;
     std::atomic<bool> mEnabled{false};
+    float mMaxDelayInSeconds = 0.0f;
+    int mMaxDelayInSamples = 0;
   };
 
 } /* namespace fdelay */
