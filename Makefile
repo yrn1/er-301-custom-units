@@ -1,8 +1,8 @@
 # top-level makefile
 
-PROJECTS = 
+PROJECTS = fdelay yutil
 
-docker_image = tomjfiset/er-301-am335x-build-env:1.1.0
+docker_image = er-301-am335x-build-env
 
 all: $(PROJECTS)
 
@@ -10,6 +10,10 @@ asm: $(addsuffix -asm,$(PROJECTS))
 
 $(PROJECTS):
 	+$(MAKE) -f src/mods/$@/mod.mk PKGNAME=$@
+
+$(addsuffix -emu,$(PROJECTS)): $(@:-emu=)
+	$(eval PROJECT := $(@:-emu=))
+	+$(MAKE) -f src/mods/$(PROJECT)/mod.mk emu PKGNAME=$(PROJECT)
 
 $(addsuffix -install,$(PROJECTS)): $(@:-install=)
 	$(eval PROJECT := $(@:-install=))

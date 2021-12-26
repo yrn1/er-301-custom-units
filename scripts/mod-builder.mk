@@ -96,16 +96,22 @@ $(OBJECTS): $(HEADERS) Makefile
 $(ASSEMBLY): $(HEADERS) Makefile
 
 $(LIB_FILE): $(OBJECTS)
-	@echo [LINK $@]
+ifneq ($(strip $(OBJECTS)),)
+	@echo [LINK $@ $(OBJECTS)]
 	@$(CC) $(CFLAGS) -o $@ $(OBJECTS) $(LFLAGS)
+else
+	@echo [NO OBJECTS]
+endif
 
 $(PACKAGE_DIR): $(LIB_FILE) $(ASSETS)
 	@echo [STAGE $@]
 	@rm -fr $@
 	@mkdir -p $@
+ifneq ($(strip $(LIBFILE)),)
 	@cp $(LIB_FILE) $@/
+endif
 	@rsync -ru $(MOD_ASSETS_DIR)/ $@/
-	@rsync -ru $(COMMON_ASSETS_DIR)/ $@/
+	# @rsync -ru $(COMMON_ASSETS_DIR)/ $@/
 	@find $@ -type f -name "*.lua" -print0 | xargs -0 sed -i.bak 's/common\.assets/$(PKGNAME)/g'
 	@find $@ -type f -name "*.bak" -print0 | xargs -0 rm
 
@@ -125,6 +131,9 @@ clean:
 
 dist-clean:
 	rm -rf testing release debug
+
+emu: install
+	cd $(SDKPATH); ./testing/$(ARCH)/emu/emu.elf
 
 install: $(PACKAGE_FILE)
 	cp $(PACKAGE_FILE) $(INSTALLROOT.$(ARCH))/ER-301/packages/
