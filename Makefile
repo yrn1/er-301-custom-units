@@ -64,7 +64,7 @@ er-301-docker-testing:
 
 release-missing:
 	docker run --rm -it -v `pwd`:/er-301-custom-units -w /er-301-custom-units --platform=linux/amd64 $(docker_image) \
-		make -j 4 strike-missing ARCH=am335x PROFILE=release
+		make -j 4 fdelay-missing ARCH=am335x PROFILE=release
 
 clean:
 	rm -rf testing debug release

@@ -106,7 +106,7 @@ $(PACKAGE_DIR): $(LIB_FILE) $(ASSETS)
 	@echo [STAGE $@]
 	@rm -fr $@
 	@mkdir -p $@
-ifneq ($(strip $(LIBFILE)),)
+ifneq ($(strip $(LIB_FILE)),)
 	@cp $(LIB_FILE) $@/
 endif
 	@rsync -ru $(MOD_ASSETS_DIR)/ $@/

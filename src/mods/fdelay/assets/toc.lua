@@ -43,6 +43,10 @@ return {
       title = "Tuned Filter Delay",
       moduleName = "TunedFilterDelay",
       keywords = "delay, effect, pitch"
+    }, {
+      title = "Manual Grain Delay",
+      moduleName = "ManualGrainDelay",
+      keywords = "delay, effect, pitch"
     }
   }
 }
