@@ -52,7 +52,6 @@ ifeq ($(ARCH),linux)
 endif
 
 ifeq ($(ARCH),darwin)
-  INSTALLROOT.darwin = ~/.od/front
   CFLAGS.darwin = -Wno-deprecated-declarations -march=native -fPIC
   LFLAGS = -dynamic -undefined dynamic_lookup -lSystem
 endif
@@ -136,7 +135,7 @@ emu: install
 	cd $(SDKPATH); ./testing/$(ARCH)/emu/emu.elf
 
 install: $(PACKAGE_FILE)
-	cp $(PACKAGE_FILE) $(INSTALLROOT.$(ARCH))/ER-301/packages/
+	cp $(PACKAGE_FILE) ~/.od/rear
 
 install-sd:
 	cp $(PACKAGE_FILE) /Volumes/NO\ Name/ER-301/packages/
