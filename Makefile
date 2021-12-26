@@ -1,6 +1,6 @@
 # top-level makefile
 
-PROJECTS = lojik sloop strike polygon
+PROJECTS = 
 
 docker_image = tomjfiset/er-301-am335x-build-env:1.1.0
 
