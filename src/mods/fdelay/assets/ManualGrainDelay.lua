@@ -3,186 +3,128 @@ local libfdelay = require "fdelay.libfdelay"
 local libcore = require "core.libcore"
 local Class = require "Base.Class"
 local Unit = require "Unit"
+local Gate = require "Unit.ViewControl.Gate"
 local GainBias = require "Unit.ViewControl.GainBias"
 local Pitch = require "Unit.ViewControl.Pitch"
+local Utils = require "Utils"
 local Encoder = require "Encoder"
 
 local ManualGrainDelay = Class {}
 ManualGrainDelay:include(Unit)
 
 function ManualGrainDelay:init(args)
-  args.title = "Grain Delay"
-  args.mnemonic = "GD"
+  args.title = "Manual Grain Delay"
+  args.mnemonic = "MGD"
   Unit.init(self, args)
 end
 
 function ManualGrainDelay:onLoadGraph(channelCount)
-  if channelCount == 2 then
-    self:loadStereoGraph()
-  else
-    self:loadMonoGraph()
-  end
-end
+  local grainL = self:addObject("grainL", libfdelay.MonoManualGrainDelay(5.0))
 
-function ManualGrainDelay:loadMonoGraph()
-  local grainL = self:addObject("grainL", libfdelay.MonoManualGrainDelay(1.0))
+  local delay = self:addObject("delay", app.ParameterAdapter())
+  local duration = self:addObject("duration", app.ParameterAdapter())
+  duration:hardSet("Bias", 0.1)
+  local squash = self:addObject("squash", app.ParameterAdapter())
+  tie(grainL, "Duration", duration, "Out")
+  tie(grainL, "Delay", delay, "Out")
+  tie(grainL, "Squash", squash, "Out")
 
-  local xfade = self:addObject("xfade", app.CrossFade())
-  local fader = self:addObject("fader", app.GainBias())
-  local faderRange = self:addObject("faderRange", app.MinMax())
-  local multiply = self:addObject("multiply", app.Multiply())
-  local pitch = self:addObject("pitch", libcore.VoltPerOctave())
-  local tune = self:addObject("tune", app.ConstantOffset())
-  local tuneRange = self:addObject("tuneRange", app.MinMax())
+  local trig = self:addObject("trig", app.Comparator())
   local speed = self:addObject("speed", app.GainBias())
-  speed:hardSet("Bias", 1.0)
+  local tune = self:addObject("tune", app.ConstantOffset())
+  local pitch = self:addObject("pitch", libcore.VoltPerOctave())
+  local multiply = self:addObject("multiply", app.Multiply())
+  local clipper = self:addObject("clipper", libcore.Clipper())
+  clipper:setMaximum(64.0)
+  clipper:setMinimum(-64.0)
+
+  local tuneRange = self:addObject("tuneRange", app.MinMax())
   local speedRange = self:addObject("speedRange", app.MinMax())
-  local speedClipper =
-      self:addObject("speedClipper", libcore.Clipper(-100, 100))
-  local delayL = self:addObject("delayL", app.GainBias())
-  local delayLRange = self:addObject("delayLRange", app.MinMax())
-  local delayLClipper = self:addObject("delayLClipper", libcore.Clipper(0, 1))
-
-  connect(grainL, "Out", xfade, "A")
-  connect(fader, "Out", xfade, "Fade")
-  connect(fader, "Out", faderRange, "In")
-
-  connect(self, "In1", xfade, "B")
-  connect(self, "In1", grainL, "In")
-  connect(xfade, "Out", self, "Out1")
-
-  connect(tune, "Out", pitch, "In")
-  connect(tune, "Out", tuneRange, "In")
-  connect(pitch, "Out", multiply, "Left")
-  connect(speed, "Out", multiply, "Right")
-  connect(multiply, "Out", speedClipper, "In")
-  connect(speed, "Out", speedRange, "In")
-  connect(speedClipper, "Out", grainL, "Speed")
-
-  connect(delayL, "Out", delayLClipper, "In")
-  connect(delayL, "Out", delayLRange, "In")
-  connect(delayLClipper, "Out", grainL, "Delay")
-
-  self:addMonoBranch("delay", delayL, "In", delayL, "Out")
-  self:addMonoBranch("speed", speed, "In", speed, "Out")
-  self:addMonoBranch("tune", tune, "In", tune, "Out")
-  self:addMonoBranch("wet", fader, "In", fader, "Out")
-end
-
-function ManualGrainDelay:loadStereoGraph()
-  local grainL = self:addObject("grainL", libfdelay.MonoManualGrainDelay(1.0))
-  local grainR = self:addObject("grainR", libfdelay.MonoManualGrainDelay(1.0))
 
   local xfade = self:addObject("xfade", app.StereoCrossFade())
   local fader = self:addObject("fader", app.GainBias())
   local faderRange = self:addObject("faderRange", app.MinMax())
-  local multiply = self:addObject("multiply", app.Multiply())
-  local pitch = self:addObject("pitch", libcore.VoltPerOctave())
-  local tune = self:addObject("tune", app.ConstantOffset())
-  local tuneRange = self:addObject("tuneRange", app.MinMax())
-  local speed = self:addObject("speed", app.GainBias())
-  speed:hardSet("Bias", 1.0)
-  local speedRange = self:addObject("speedRange", app.MinMax())
-  local speedClipper =
-      self:addObject("speedClipper", libcore.Clipper(-100, 100))
-  local delayL = self:addObject("delayL", app.GainBias())
-  local delayLRange = self:addObject("delayLRange", app.MinMax())
-  local delayLClipper = self:addObject("delayLClipper", libcore.Clipper(0, 1))
-  local delayR = self:addObject("delayR", app.GainBias())
-  local delayRRange = self:addObject("delayRRange", app.MinMax())
-  local delayRClipper = self:addObject("delayRClipper", libcore.Clipper(0, 1))
-
+  connect(self, "In1", grainL, "In")
+  connect(self, "In1", xfade, "Left B")
+  connect(xfade, "Left Out", self, "Out1")
   connect(grainL, "Out", xfade, "Left A")
-  connect(grainR, "Out", xfade, "Right A")
   connect(fader, "Out", xfade, "Fade")
   connect(fader, "Out", faderRange, "In")
 
-  connect(self, "In1", xfade, "Left B")
-  connect(self, "In1", grainL, "In")
+  connect(trig, "Out", grainL, "Trigger")
 
-  connect(self, "In2", xfade, "Right B")
-  connect(self, "In2", grainR, "In")
-
-  connect(xfade, "Left Out", self, "Out1")
-  connect(xfade, "Right Out", self, "Out2")
-
+  -- Pitch and Linear FM
   connect(tune, "Out", pitch, "In")
   connect(tune, "Out", tuneRange, "In")
   connect(pitch, "Out", multiply, "Left")
   connect(speed, "Out", multiply, "Right")
-  connect(multiply, "Out", speedClipper, "In")
   connect(speed, "Out", speedRange, "In")
-  connect(speedClipper, "Out", grainL, "Speed")
-  connect(speedClipper, "Out", grainR, "Speed")
+  connect(multiply, "Out", clipper, "In")
+  connect(clipper, "Out", grainL, "Speed")
 
-  connect(delayL, "Out", delayLClipper, "In")
-  connect(delayL, "Out", delayLRange, "In")
-  connect(delayLClipper, "Out", grainL, "Delay")
-
-  connect(delayR, "Out", delayRClipper, "In")
-  connect(delayR, "Out", delayRRange, "In")
-  connect(delayRClipper, "Out", grainR, "Delay")
-
-  self:addMonoBranch("delayL", delayL, "In", delayL, "Out")
-  self:addMonoBranch("delayR", delayR, "In", delayR, "Out")
+  self:addMonoBranch("delay", delay, "In", delay, "Out")
   self:addMonoBranch("speed", speed, "In", speed, "Out")
   self:addMonoBranch("tune", tune, "In", tune, "Out")
+  self:addMonoBranch("trig", trig, "In", trig, "Out")
+  self:addMonoBranch("duration", duration, "In", duration, "Out")
+  self:addMonoBranch("squash", squash, "In", squash, "Out")
   self:addMonoBranch("wet", fader, "In", fader, "Out")
+
+  if channelCount == 2 then
+    local grainR = self:addObject("grainR", libfdelay.MonoManualGrainDelay(5.0))
+    tie(grainR, "Duration", duration, "Out")
+    tie(grainR, "Delay", delay, "Out")
+    tie(grainR, "Squash", squash, "Out")
+  
+    connect(self, "In2", grainR, "In")
+    connect(self, "In2", xfade, "Right B")
+    connect(xfade, "Right Out", self, "Out2")
+    connect(grainR, "Out", xfade, "Right A")
+
+    connect(clipper, "Out", grainR, "Speed")
+
+    connect(trig, "Out", grainR, "Trigger")
+  end
+end
+
+local function timeMap(max, n)
+  local map = app.LinearDialMap(0, max)
+  map:setCoarseRadix(n)
+  return map
 end
 
 function ManualGrainDelay:onLoadViews(objects, branches)
   local controls = {}
-  local views = {
-    collapsed = {}
-  }
+  local views = {collapsed = {}}
 
   if self.channelCount == 2 then
     views.expanded = {
-      "leftDelay",
-      "rightDelay",
+      "trigger",
       "pitch",
       "speed",
+      "delay",
+      "duration",
+      "squash",
       "wet"
     }
-
-    controls.leftDelay = GainBias {
-      button = "delay(L)",
-      branch = branches.delayL,
-      description = "Left Delay",
-      gainbias = objects.delayL,
-      range = objects.delayLRange,
-      biasMap = Encoder.getMap("unit"),
-      biasUnits = app.unitSecs
-    }
-
-    controls.rightDelay = GainBias {
-      button = "delay(R)",
-      branch = branches.delayR,
-      description = "Right Delay",
-      gainbias = objects.delayR,
-      range = objects.delayRRange,
-      biasMap = Encoder.getMap("unit"),
-      biasUnits = app.unitSecs
-    }
-
   else
     views.expanded = {
-      "delay",
+      "trigger",
       "pitch",
       "speed",
+      "delay",
+      "duration",
+      "squash",
       "wet"
     }
-
-    controls.delay = GainBias {
-      button = "delay",
-      branch = branches.delay,
-      description = "Delay",
-      gainbias = objects.delayL,
-      range = objects.delayLRange,
-      biasMap = Encoder.getMap("unit"),
-      biasUnits = app.unitSecs
-    }
   end
+
+  controls.trigger = Gate {
+    button = "trig",
+    description = "Trigger",
+    branch = branches.trig,
+    comparator = objects.trig
+  }
 
   controls.pitch = Pitch {
     button = "V/oct",
@@ -199,7 +141,41 @@ function ManualGrainDelay:onLoadViews(objects, branches)
     gainbias = objects.speed,
     range = objects.speedRange,
     biasMap = Encoder.getMap("speed"),
-    biasUnits = app.unitNone
+    biasUnits = app.unitNone,
+    initialBias = 1.0
+  }
+
+  local allocated = Utils.round(self.objects.grainL:getMaxDelay(), 1)
+
+  controls.delay = GainBias {
+    button = "delay",
+    description = "Delay",
+    branch = branches.delay,
+    gainbias = objects.delay,
+    range = objects.delay,
+    biasMap = timeMap(allocated, 100),
+    biasUnits = app.unitSecs
+  }
+
+  controls.duration = GainBias {
+    button = "dur",
+    description = "Duration",
+    branch = branches.duration,
+    gainbias = objects.duration,
+    range = objects.duration,
+    biasMap = Encoder.getMap("unit"),
+    biasUnits = app.unitSecs
+  }
+
+  controls.squash = GainBias {
+    button = "squash",
+    description = "Squash",
+    branch = branches.squash,
+    gainbias = objects.squash,
+    range = objects.squash,
+    biasMap = Encoder.getMap("gain36dB"),
+    biasUnits = app.unitDecibels,
+    initialBias = 1.0
   }
 
   controls.wet = GainBias {
@@ -208,24 +184,11 @@ function ManualGrainDelay:onLoadViews(objects, branches)
     description = "Wet/Dry",
     gainbias = objects.fader,
     range = objects.faderRange,
-    biasMap = Encoder.getMap("unit")
+    biasMap = Encoder.getMap("unit"),
+    initialBias = 0.5
   }
 
   return controls, views
-end
-
-function ManualGrainDelay:deserialize(t)
-  Unit.deserialize(self, t)
-  -- v0.2.21: Changed Wet/Dry from ConstantOffset to GainBias
-  local pData = t.objects.fader and t.objects.fader.params
-  if pData and pData.Offset then
-    local param = self.objects.fader and self.objects.fader:getParameter("Bias")
-    if param then
-      app.logInfo(
-          "ManualGrainDelay:deserialize: porting legacy parameter, fader.Offset.")
-      param:deserialize(pData.Offset)
-    end
-  end
 end
 
 return ManualGrainDelay

@@ -7,34 +7,46 @@
 
 namespace fdelay
 {
-#define MONOPSD_GRAIN_COUNT 3
-
   class MonoManualGrainDelay : public od::Object
   {
   public:
-    MonoManualGrainDelay(float secs);
+    MonoManualGrainDelay(float secs, int grainCount = 16);
     virtual ~MonoManualGrainDelay();
+
+    void setMaxDelay(float secs);
+    float getMaxDelay();
 
 #ifndef SWIGLUA
     virtual void process();
     od::Inlet mInput{"In"};
-    od::Inlet mDelay{"Delay"};
+    od::Inlet mTrigger{"Trigger"};
     od::Inlet mSpeed{"Speed"};
+    od::Parameter mDelay{"Delay"};
+    od::Parameter mDuration{"Duration"};
+    od::Parameter mSquash{"Squash"};
     od::Outlet mOutput{"Out"};
-#endif
 
-    void setMaxDelay(float secs);
+    int getGrainCount();
+    Grain *getGrain(int index);
+#endif
 
   private:
     od::SampleFifo mSampleFifo;
-    std::array<MonoGrain, MONOPSD_GRAIN_COUNT> mGrains;
 
-    int mSamplesUntilNextOnset = 0;
+    std::vector<MonoGrain> mGrains;
+    std::vector<MonoGrain *> mFreeGrains;
+    std::vector<MonoGrain *> mActiveGrains;
+
+    // gain compensation (indexed by number of free grains)
+    std::vector<float> mGainCompensation;
+
+    MonoGrain *getNextFreeGrain();
+    void setMaximumGrainCount(int n);
+    void stopAllGrains();
+
     float mMaxDelayInSeconds = 0.0f;
     int mMaxDelayInSamples = 0;
-    int mGrainDurationInSamples = 0;
-    int mGrainPeriodInSamples = 0;
 
-    MonoGrain *getFreeGrain();
+    std::atomic<bool> mEnabled{false};
   };
 } /* namespace fdelay */
