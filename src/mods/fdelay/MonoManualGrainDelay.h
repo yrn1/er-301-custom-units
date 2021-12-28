@@ -20,6 +20,7 @@ namespace fdelay
     virtual void process();
     od::Inlet mInput{"In"};
     od::Inlet mTrigger{"Trigger"};
+    od::Inlet mFreeze{"Freeze"};
     od::Inlet mSpeed{"Speed"};
     od::Parameter mDelay{"Delay"};
     od::Parameter mDuration{"Duration"};

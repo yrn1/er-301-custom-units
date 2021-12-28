@@ -11,6 +11,7 @@ namespace fdelay
   {
     addInput(mInput);
     addInput(mTrigger);
+    addInput(mFreeze);
     addInput(mSpeed);
     addParameter(mDelay);
     addParameter(mDuration);
@@ -118,15 +119,17 @@ namespace fdelay
   {
     float *in = mInput.buffer();
     float *out = mOutput.buffer();
+    float *trig = mTrigger.buffer();
+    float *speed = mSpeed.buffer();
+    float *freeze = mFreeze.buffer();
 
-    mSampleFifo.pop(FRAMELENGTH);
-    mSampleFifo.pushMono(in, FRAMELENGTH);
+    if (freeze[0] <= 0.0f) {
+      mSampleFifo.pop(FRAMELENGTH);
+      mSampleFifo.pushMono(in, FRAMELENGTH);
+    }
 
     // zero the output buffer
     memset(out, 0, sizeof(float) * FRAMELENGTH);
-
-    float *trig = mTrigger.buffer();
-    float *speed = mSpeed.buffer();
 
     for (int i = 0; i < FRAMELENGTH; i++)
     {
@@ -136,23 +139,17 @@ namespace fdelay
         if (grain)
         {
           float delay = mDelay.value();
-          int duration = mDuration.value() * globalConfig.sampleRate;
-          int needed = duration * speed[i] + 1;
+          float duration = mDuration.value();
+          delay = delay / mMaxDelayInSeconds * (mMaxDelayInSeconds - duration);
 
-          int targetDelay = delay * globalConfig.sampleRate;
-          if (targetDelay < needed) {
-            targetDelay = needed;
-          }
-          int start;
-          if (targetDelay < mMaxDelayInSamples)
+          int durationSamples = duration * globalConfig.sampleRate;
+          int neededSamples = durationSamples * speed[i] + 1;
+          int delaySamples = delay * globalConfig.sampleRate + neededSamples;
+
+          int start = mMaxDelayInSamples - delaySamples;
+          if (start < 0)
           {
-            start = mMaxDelayInSamples - targetDelay;
-          }
-          else
-          {
-            targetDelay = mMaxDelayInSamples;
             start = 0;
-            duration = mMaxDelayInSamples / speed[i];
           }
 
           // translate to fifo offset
@@ -160,7 +157,7 @@ namespace fdelay
 
           float gain = mGainCompensation[mFreeGrains.size()];
 
-          grain->init(start, duration, speed[i], gain, 0.0f);
+          grain->init(start, durationSamples, speed[i], gain, 0.0f);
           grain->setSquash(mSquash.value());
         }
         // Only try to produce one grain per frame

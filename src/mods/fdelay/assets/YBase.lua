@@ -58,7 +58,7 @@ end
 
 function YBase:createEqHighControl(toneControl)
   local eqRectifyHigh = self:addObject("eqRectifyHigh", libcore.Rectify())
-  eqRectifyHigh:setOptionValue("Type", 2)
+  eqRectifyHigh:setOptionValue("Type", libcore.RECTIFY_NEGATIVEHALF)
   local eqHigh = self:addObject("eqHigh", app.GainBias())
   eqHigh:hardSet("Gain", 1.0)
   eqHigh:hardSet("Bias", 1.0)
@@ -75,7 +75,7 @@ end
 
 function YBase:createEqLowControl(toneControl)
   local eqRectifyLow = self:addObject("eqRectifyLow", libcore.Rectify())
-  eqRectifyLow:setOptionValue("Type", 1)
+  eqRectifyLow:setOptionValue("Type", libcore.RECTIFY_POSITIVEHALF)
   local eqLow = self:addObject("eqLow", app.GainBias())
   eqLow:hardSet("Gain", -1.0)
   eqLow:hardSet("Bias", 1.0)

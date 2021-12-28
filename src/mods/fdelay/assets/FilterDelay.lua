@@ -68,7 +68,7 @@ function FilterDelay:onLoadGraph(channelCount)
   feedbackGainL:setClampInDecibels(-35.9)
 
   local limiterL = self:addObject("limiter", libcore.Limiter())
-  limiterL:setOptionValue("Type", 2)
+  limiterL:setOptionValue("Type", libcore.LIMITER_CUBIC)
 
   local eqL = self:createEq("eqL", eqHigh, eqMid, eqLow)
 
@@ -102,7 +102,7 @@ function FilterDelay:onLoadGraph(channelCount)
     feedbackGainR:setClampInDecibels(-35.9)
 
     local limiterR = self:addObject("limiter", libcore.Limiter())
-    limiterR:setOptionValue("Type", 2)
+    limiterR:setOptionValue("Type", libcore.LIMITER_CUBIC)
 
     local eqR = self:createEq("eqR", eqHigh, eqMid, eqLow)
 

@@ -9,6 +9,7 @@ local GainBias = require "Unit.ViewControl.GainBias"
 local Pitch = require "Unit.ViewControl.Pitch"
 local Utils = require "Utils"
 local Encoder = require "Encoder"
+local OptionControl = require "Unit.MenuControl.OptionControl"
 
 local ManualGrainDelay = Class {}
 ManualGrainDelay:include(YBase)
@@ -33,6 +34,11 @@ function ManualGrainDelay:onLoadGraph(channelCount)
 
   local trig = self:addObject("trig", app.Comparator())
   self:addMonoBranch("trig", trig, "In", trig, "Out")
+  local freeze = self:addObject("freeze", app.Comparator())
+  freeze:setOptionValue("Mode", app.COMPARATOR_GATE)
+  self:addMonoBranch("freeze", freeze, "In", freeze, "Out")
+  connect(freeze, "Out", grainL, "Freeze")
+
   local speed = self:createControl("speed", app.GainBias())
   local tune = self:createControl("tune", app.ConstantOffset())
   local pitch = self:addObject("pitch", libcore.VoltPerOctave())
@@ -63,7 +69,7 @@ function ManualGrainDelay:onLoadGraph(channelCount)
   feedbackGainL:setClampInDecibels(-35.9)
 
   local limiterL = self:addObject("limiter", libcore.Limiter())
-  limiterL:setOptionValue("Type", 2)
+  limiterL:setOptionValue("Type", libcore.LIMITER_CUBIC)
 
   local eqL = self:createEq("eqL", eqHigh, eqMid, eqLow)
 
@@ -87,13 +93,14 @@ function ManualGrainDelay:onLoadGraph(channelCount)
     tie(grainR, "Duration", duration, "Out")
     tie(grainR, "Delay", delay, "Out")
     tie(grainR, "Squash", squash, "Out")
+    connect(freeze, "Out", grainR, "Freeze")
   
     local feedbackMixR = self:addObject("feedbackMixR", app.Sum())
     local feedbackGainR = self:addObject("feedbackGainR", app.ConstantGain())
     feedbackGainR:setClampInDecibels(-35.9)
 
     local limiterR = self:addObject("limiter", libcore.Limiter())
-    limiterR:setOptionValue("Type", 2)
+    limiterR:setOptionValue("Type", libcore.LIMITER_CUBIC)
 
     local eqR = self:createEq("eqR", eqHigh, eqMid, eqLow)
 
@@ -127,6 +134,25 @@ local function feedbackMap()
   return map
 end
 
+local menu = {
+  "freeze"
+}
+
+function ManualGrainDelay:onShowMenu(objects, branches)
+  local controls = {}
+
+  controls.freeze = OptionControl {
+    description = "Freeze Latch",
+    option = objects.freeze:getOption("Mode"),
+    choices = {
+      "on",
+      "off"
+    }
+  }
+
+  return controls, menu
+end
+
 function ManualGrainDelay:onLoadViews(objects, branches)
   local controls = {}
   local views = {collapsed = {}}
@@ -134,6 +160,7 @@ function ManualGrainDelay:onLoadViews(objects, branches)
   if self.channelCount == 2 then
     views.expanded = {
       "trigger",
+      "freeze",
       "pitch",
       "speed",
       "duration",
@@ -146,6 +173,7 @@ function ManualGrainDelay:onLoadViews(objects, branches)
   else
     views.expanded = {
       "trigger",
+      "freeze",
       "pitch",
       "speed",
       "duration",
@@ -162,6 +190,13 @@ function ManualGrainDelay:onLoadViews(objects, branches)
     description = "Trigger",
     branch = branches.trig,
     comparator = objects.trig
+  }
+
+  controls.freeze = Gate {
+    button = "freeze",
+    description = "Freeze",
+    branch = branches.freeze,
+    comparator = objects.freeze
   }
 
   controls.pitch = Pitch {
