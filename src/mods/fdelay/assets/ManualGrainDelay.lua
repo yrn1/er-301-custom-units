@@ -1,4 +1,5 @@
 local app = app
+local YBase = require "fdelay.YBase"
 local libfdelay = require "fdelay.libfdelay"
 local libcore = require "core.libcore"
 local Class = require "Base.Class"
@@ -10,65 +11,52 @@ local Utils = require "Utils"
 local Encoder = require "Encoder"
 
 local ManualGrainDelay = Class {}
-ManualGrainDelay:include(Unit)
+ManualGrainDelay:include(YBase)
 
 function ManualGrainDelay:init(args)
   args.title = "Manual Grain Delay"
   args.mnemonic = "MGD"
   Unit.init(self, args)
+  YBase.init(self, args)
 end
 
 function ManualGrainDelay:onLoadGraph(channelCount)
   local grainL = self:addObject("grainL", libfdelay.MonoManualGrainDelay(5.0))
 
-  local delay = self:addObject("delay", app.ParameterAdapter())
-  local duration = self:addObject("duration", app.ParameterAdapter())
+  local delay = self:createAdapterControl("delay")
+  local duration = self:createAdapterControl("duration")
   duration:hardSet("Bias", 0.1)
-  local squash = self:addObject("squash", app.ParameterAdapter())
+  local squash = self:createAdapterControl("squash")
   tie(grainL, "Duration", duration, "Out")
   tie(grainL, "Delay", delay, "Out")
   tie(grainL, "Squash", squash, "Out")
 
   local trig = self:addObject("trig", app.Comparator())
-  local speed = self:addObject("speed", app.GainBias())
-  local tune = self:addObject("tune", app.ConstantOffset())
+  self:addMonoBranch("trig", trig, "In", trig, "Out")
+  local speed = self:createControl("speed", app.GainBias())
+  local tune = self:createControl("tune", app.ConstantOffset())
   local pitch = self:addObject("pitch", libcore.VoltPerOctave())
   local multiply = self:addObject("multiply", app.Multiply())
   local clipper = self:addObject("clipper", libcore.Clipper())
   clipper:setMaximum(64.0)
   clipper:setMinimum(-64.0)
 
-  local tuneRange = self:addObject("tuneRange", app.MinMax())
-  local speedRange = self:addObject("speedRange", app.MinMax())
-
   local xfade = self:addObject("xfade", app.StereoCrossFade())
-  local fader = self:addObject("fader", app.GainBias())
-  local faderRange = self:addObject("faderRange", app.MinMax())
+  local fader = self:createControl("fader", app.GainBias())
   connect(self, "In1", grainL, "In")
   connect(self, "In1", xfade, "Left B")
   connect(xfade, "Left Out", self, "Out1")
   connect(grainL, "Out", xfade, "Left A")
   connect(fader, "Out", xfade, "Fade")
-  connect(fader, "Out", faderRange, "In")
 
   connect(trig, "Out", grainL, "Trigger")
 
   -- Pitch and Linear FM
   connect(tune, "Out", pitch, "In")
-  connect(tune, "Out", tuneRange, "In")
   connect(pitch, "Out", multiply, "Left")
   connect(speed, "Out", multiply, "Right")
-  connect(speed, "Out", speedRange, "In")
   connect(multiply, "Out", clipper, "In")
   connect(clipper, "Out", grainL, "Speed")
-
-  self:addMonoBranch("delay", delay, "In", delay, "Out")
-  self:addMonoBranch("speed", speed, "In", speed, "Out")
-  self:addMonoBranch("tune", tune, "In", tune, "Out")
-  self:addMonoBranch("trig", trig, "In", trig, "Out")
-  self:addMonoBranch("duration", duration, "In", duration, "Out")
-  self:addMonoBranch("squash", squash, "In", squash, "Out")
-  self:addMonoBranch("wet", fader, "In", fader, "Out")
 
   if channelCount == 2 then
     local grainR = self:addObject("grainR", libfdelay.MonoManualGrainDelay(5.0))
@@ -180,7 +168,7 @@ function ManualGrainDelay:onLoadViews(objects, branches)
 
   controls.wet = GainBias {
     button = "wet",
-    branch = branches.wet,
+    branch = branches.fader,
     description = "Wet/Dry",
     gainbias = objects.fader,
     range = objects.faderRange,
