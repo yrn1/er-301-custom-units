@@ -357,12 +357,12 @@ function ManualGrainDelay:deserialize(t)
   Unit.deserialize(self, t)
 end
 
-function ManualGrainDelay:onRemove()
-  self.objects.grainL:deallocate()
-  if channelCount == 2 then
-    self.objects.grainR:deallocate()
-  end
-  Unit.onRemove(self)
-end
+-- function ManualGrainDelay:onRemove()
+--   self.objects.grainL:deallocate()
+--   if channelCount == 2 then
+--     self.objects.grainR:deallocate()
+--   end
+--   Unit.onRemove(self)
+-- end
 
 return ManualGrainDelay
