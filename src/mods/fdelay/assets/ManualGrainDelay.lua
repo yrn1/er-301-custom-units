@@ -43,20 +43,44 @@ function ManualGrainDelay:onLoadGraph(channelCount)
 
   local xfade = self:addObject("xfade", app.StereoCrossFade())
   local fader = self:createControl("fader", app.GainBias())
-  connect(self, "In1", grainL, "In")
-  connect(self, "In1", xfade, "Left B")
-  connect(xfade, "Left Out", self, "Out1")
-  connect(grainL, "Out", xfade, "Left A")
   connect(fader, "Out", xfade, "Fade")
-
-  connect(trig, "Out", grainL, "Trigger")
 
   -- Pitch and Linear FM
   connect(tune, "Out", pitch, "In")
   connect(pitch, "Out", multiply, "Left")
   connect(speed, "Out", multiply, "Right")
   connect(multiply, "Out", clipper, "In")
+
+  local feedbackGainAdapter = self:createAdapterControl("feedbackGainAdapter")
+
+  local tone = self:createControl("tone", app.GainBias())
+  local eqHigh = self:createEqHighControl(tone)
+  local eqMid = self:createEqMidControl()
+  local eqLow = self:createEqLowControl(tone)
+
+  local feedbackMixL = self:addObject("feedbackMixL", app.Sum())
+  local feedbackGainL = self:addObject("feedbackGainL", app.ConstantGain())
+  feedbackGainL:setClampInDecibels(-35.9)
+
+  local limiterL = self:addObject("limiter", libcore.Limiter())
+  limiterL:setOptionValue("Type", 2)
+
+  local eqL = self:createEq("eqL", eqHigh, eqMid, eqLow)
+
+  tie(feedbackGainL, "Gain", feedbackGainAdapter, "Out")
+
+  connect(self, "In1", xfade, "Left B")
+  connect(self, "In1", feedbackMixL, "Left")
+  connect(feedbackMixL, "Out", eqL, "In")
+  connect(eqL, "Out", grainL, "In")
+  connect(grainL, "Out", feedbackGainL, "In")
+  connect(grainL, "Out", xfade, "Left A")
+  connect(feedbackGainL, "Out", limiterL, "In")
+  connect(limiterL, "Out", feedbackMixL, "Right")
+  connect(xfade, "Left Out", self, "Out1")
+
   connect(clipper, "Out", grainL, "Speed")
+  connect(trig, "Out", grainL, "Trigger")
 
   if channelCount == 2 then
     local grainR = self:addObject("grainR", libfdelay.MonoManualGrainDelay(5.0))
@@ -64,13 +88,28 @@ function ManualGrainDelay:onLoadGraph(channelCount)
     tie(grainR, "Delay", delay, "Out")
     tie(grainR, "Squash", squash, "Out")
   
-    connect(self, "In2", grainR, "In")
+    local feedbackMixR = self:addObject("feedbackMixR", app.Sum())
+    local feedbackGainR = self:addObject("feedbackGainR", app.ConstantGain())
+    feedbackGainR:setClampInDecibels(-35.9)
+
+    local limiterR = self:addObject("limiter", libcore.Limiter())
+    limiterR:setOptionValue("Type", 2)
+
+    local eqR = self:createEq("eqR", eqHigh, eqMid, eqLow)
+
+    tie(feedbackGainR, "Gain", feedbackGainAdapter, "Out")
+
     connect(self, "In2", xfade, "Right B")
-    connect(xfade, "Right Out", self, "Out2")
+    connect(self, "In2", feedbackMixR, "Left")
+    connect(feedbackMixR, "Out", eqR, "In")
+    connect(eqR, "Out", grainR, "In")
+    connect(grainR, "Out", feedbackGainR, "In")
     connect(grainR, "Out", xfade, "Right A")
+    connect(feedbackGainR, "Out", limiterR, "In")
+    connect(limiterR, "Out", feedbackMixR, "Right")
+    connect(xfade, "Right Out", self, "Out2")
 
     connect(clipper, "Out", grainR, "Speed")
-
     connect(trig, "Out", grainR, "Trigger")
   end
 end
@@ -78,6 +117,13 @@ end
 local function timeMap(max, n)
   local map = app.LinearDialMap(0, max)
   map:setCoarseRadix(n)
+  return map
+end
+
+local function feedbackMap()
+  local map = app.LinearDialMap(-36, 6)
+  map:setZero(-160)
+  map:setSteps(6, 1, 0.1, 0.01);
   return map
 end
 
@@ -90,9 +136,11 @@ function ManualGrainDelay:onLoadViews(objects, branches)
       "trigger",
       "pitch",
       "speed",
-      "delay",
       "duration",
       "squash",
+      "delay",
+      "feedback",
+      "tone",
       "wet"
     }
   else
@@ -100,9 +148,11 @@ function ManualGrainDelay:onLoadViews(objects, branches)
       "trigger",
       "pitch",
       "speed",
-      "delay",
       "duration",
       "squash",
+      "delay",
+      "feedback",
+      "tone",
       "wet"
     }
   end
@@ -133,18 +183,6 @@ function ManualGrainDelay:onLoadViews(objects, branches)
     initialBias = 1.0
   }
 
-  local allocated = Utils.round(self.objects.grainL:getMaxDelay(), 1)
-
-  controls.delay = GainBias {
-    button = "delay",
-    description = "Delay",
-    branch = branches.delay,
-    gainbias = objects.delay,
-    range = objects.delay,
-    biasMap = timeMap(allocated, 100),
-    biasUnits = app.unitSecs
-  }
-
   controls.duration = GainBias {
     button = "dur",
     description = "Duration",
@@ -164,6 +202,38 @@ function ManualGrainDelay:onLoadViews(objects, branches)
     biasMap = Encoder.getMap("gain36dB"),
     biasUnits = app.unitDecibels,
     initialBias = 1.0
+  }
+
+  local allocated = Utils.round(self.objects.grainL:getMaxDelay(), 1)
+
+  controls.delay = GainBias {
+    button = "delay",
+    description = "Delay",
+    branch = branches.delay,
+    gainbias = objects.delay,
+    range = objects.delay,
+    biasMap = timeMap(allocated, 100),
+    biasUnits = app.unitSecs
+  }
+
+  controls.feedback = GainBias {
+    button = "fdbk",
+    description = "Feedback",
+    branch = branches.feedbackGainAdapter,
+    gainbias = objects.feedbackGainAdapter,
+    range = objects.feedbackGainAdapter,
+    biasMap = feedbackMap(),
+    biasUnits = app.unitDecibels
+  }
+  controls.feedback:setTextBelow(-35.9, "-inf dB")
+
+  controls.tone = GainBias {
+    button = "tone",
+    description = "Tone",
+    branch = branches.tone,
+    gainbias = objects.tone,
+    range = objects.toneRange,
+    biasMap = Encoder.getMap("[-1,1]")
   }
 
   controls.wet = GainBias {
