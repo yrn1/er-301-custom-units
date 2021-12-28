@@ -48,6 +48,8 @@ namespace fdelay
     float mMaxDelayInSeconds = 0.0f;
     int mMaxDelayInSamples = 0;
 
+    bool mFrozen = false;
+
     std::atomic<bool> mEnabled{false};
   };
 } /* namespace fdelay */

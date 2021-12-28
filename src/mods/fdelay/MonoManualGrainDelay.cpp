@@ -124,7 +124,26 @@ namespace fdelay
     float *speed = mSpeed.buffer();
     float *freeze = mFreeze.buffer();
 
-    if (freeze[0] <= 0.0f) {
+    if (freeze[0] <= 0.0f)
+    {
+      if (mFrozen)
+      {
+        mFrozen = false;
+        for (int i = 0; i < FRAMELENGTH; i++)
+        {
+          in[i] = in[i] * (float)i / (float)FRAMELENGTH;
+        }
+      }
+      mSampleFifo.pop(FRAMELENGTH);
+      mSampleFifo.pushMono(in, FRAMELENGTH);
+    }
+    else if (!mFrozen)
+    {
+      mFrozen = true;
+      for (int i = 0; i < FRAMELENGTH; i++)
+      {
+        in[i] = in[i] * (1.0 - (float)i / (float)FRAMELENGTH);
+      }
       mSampleFifo.pop(FRAMELENGTH);
       mSampleFifo.pushMono(in, FRAMELENGTH);
     }

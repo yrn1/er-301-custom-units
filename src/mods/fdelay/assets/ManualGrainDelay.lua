@@ -154,6 +154,7 @@ local menu = {
   "set5s",
   "set10s",
   "set30s",
+  "freezeHeader",
   "freeze"
 }
 
@@ -191,6 +192,10 @@ function ManualGrainDelay:onShowMenu(objects, branches)
     task = function()
       self:setMaxDelay(30)
     end
+  }
+
+  controls.freezeHeader = MenuHeader {
+    description = "Controls"
   }
 
   controls.freeze = OptionControl {
