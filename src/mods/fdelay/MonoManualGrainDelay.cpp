@@ -162,31 +162,14 @@ namespace fdelay
         MonoGrain *grain = getNextFreeGrain();
         if (grain)
         {
-          float duration = mDuration.value();
-          if (duration >= mMaxDelayInSeconds)
-          {
-            duration = mMaxDelayInSeconds - 0.01f;
-          }
-          float delay = mDelay.value() / mMaxDelayInSeconds * (mMaxDelayInSeconds - duration);
-
+          float duration = MIN(mDuration.value(), mMaxDelayInSeconds - 0.01f);
+          float delay = MIN(mDelay.value(), mMaxDelayInSeconds);
           int durationSamples = duration * globalConfig.sampleRate;
           int neededSamples = (durationSamples + 1) * speed[i];
-          int delaySamples = delay * globalConfig.sampleRate;
-
-          int start = mMaxDelayInSamples - delaySamples;
-          if (start < 0)
-          {
-            start = 0;
-          }
-          if (start > mMaxDelayInSamples)
-          {
-            start = mMaxDelayInSamples;
-          }
-
+          int delaySamples = MIN(delay * globalConfig.sampleRate, mMaxDelayInSamples + 2 * neededSamples);
+          int start = CLAMP(0, mMaxDelayInSamples, mMaxDelayInSamples - delaySamples);
           start += mSampleFifo.offsetToRecent(mMaxDelayInSamples + globalConfig.frameLength);
-
           float gain = mGainCompensation[mFreeGrains.size()];
-
           grain->init(start, durationSamples, speed[i], gain, 0.0f);
           grain->setSquash(mSquash.value());
         }
