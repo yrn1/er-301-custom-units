@@ -13,7 +13,7 @@ namespace fdelay
     MonoManualGrainDelay(float secs, int grainCount = 16);
     virtual ~MonoManualGrainDelay();
 
-    void setMaxDelay(float secs);
+    float setMaxDelay(float secs);
     float getMaxDelay();
 
 #ifndef SWIGLUA

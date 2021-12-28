@@ -26,11 +26,6 @@ namespace fdelay
   {
   }
 
-  float MonoManualGrainDelay::getMaxDelay()
-  {
-    return mMaxDelayInSeconds;
-  }
-
   int MonoManualGrainDelay::getGrainCount()
   {
     return mGainCompensation.size();
@@ -59,7 +54,12 @@ namespace fdelay
     }
   }
 
-  void MonoManualGrainDelay::setMaxDelay(float secs)
+  float MonoManualGrainDelay::getMaxDelay()
+  {
+    return mMaxDelayInSeconds;
+  }
+
+  float MonoManualGrainDelay::setMaxDelay(float secs)
   {
     mEnabled = false;
     stopAllGrains();
@@ -80,6 +80,7 @@ namespace fdelay
     }
 
     mEnabled = true;
+    return mMaxDelayInSeconds;
   }
 
   void MonoManualGrainDelay::setMaximumGrainCount(int n)
