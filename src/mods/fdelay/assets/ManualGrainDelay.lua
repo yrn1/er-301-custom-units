@@ -149,11 +149,11 @@ function ManualGrainDelay:setMaxDelay(secs)
 end
 
 local menu = {
-  "setHeader",
-  "set2s",
-  "set5s",
-  "set10s",
-  "set30s",
+  -- "setHeader",
+  -- "set2s",
+  -- "set5s",
+  -- "set10s",
+  -- "set30s",
   "freezeHeader",
   "freeze"
 }
@@ -161,38 +161,38 @@ local menu = {
 function ManualGrainDelay:onShowMenu(objects, branches)
   local controls = {}
 
-  local allocated = Utils.round(self.objects.grainL:getMaxDelay(), 1)
-  controls.setHeader = MenuHeader {
-    description = string.format("Current Maximum Delay is %0.1fs.", allocated)
-  }
+  -- local allocated = Utils.round(self.objects.grainL:getMaxDelay(), 1)
+  -- controls.setHeader = MenuHeader {
+  --   description = string.format("Current Maximum Delay is %0.1fs.", allocated)
+  -- }
 
-  controls.set2s = Task {
-    description = "2s",
-    task = function()
-      self:setMaxDelay(2)
-    end
-  }
+  -- controls.set2s = Task {
+  --   description = "2s",
+  --   task = function()
+  --     self:setMaxDelay(2)
+  --   end
+  -- }
 
-  controls.set5s = Task {
-    description = "5s",
-    task = function()
-      self:setMaxDelay(5)
-    end
-  }
+  -- controls.set5s = Task {
+  --   description = "5s",
+  --   task = function()
+  --     self:setMaxDelay(5)
+  --   end
+  -- }
 
-  controls.set10s = Task {
-    description = "10s",
-    task = function()
-      self:setMaxDelay(10)
-    end
-  }
+  -- controls.set10s = Task {
+  --   description = "10s",
+  --   task = function()
+  --     self:setMaxDelay(10)
+  --   end
+  -- }
 
-  controls.set30s = Task {
-    description = "30s",
-    task = function()
-      self:setMaxDelay(30)
-    end
-  }
+  -- controls.set30s = Task {
+  --   description = "30s",
+  --   task = function()
+  --     self:setMaxDelay(30)
+  --   end
+  -- }
 
   controls.freezeHeader = MenuHeader {
     description = "Controls"
@@ -341,21 +341,21 @@ function ManualGrainDelay:onLoadViews(objects, branches)
   return controls, views
 end
 
-function ManualGrainDelay:onLoadFinished()
-  self:setMaxDelay(2.0)
-end
+-- function ManualGrainDelay:onLoadFinished()
+--   self:setMaxDelay(2.0)
+-- end
 
-function ManualGrainDelay:serialize()
-  local t = Unit.serialize(self)
-  t.maxDelay = self.objects.grainL:getMaxDelay()
-  return t
-end
+-- function ManualGrainDelay:serialize()
+--   local t = Unit.serialize(self)
+--   t.maxDelay = self.objects.grainL:getMaxDelay()
+--   return t
+-- end
 
-function ManualGrainDelay:deserialize(t)
-  local time = t.maxDelay
-  if time and time > 0 then self:setMaxDelay(time) end
-  Unit.deserialize(self, t)
-end
+-- function ManualGrainDelay:deserialize(t)
+--   local time = t.maxDelay
+--   if time and time > 0 then self:setMaxDelay(time) end
+--   Unit.deserialize(self, t)
+-- end
 
 -- function ManualGrainDelay:onRemove()
 --   self.objects.grainL:deallocate()

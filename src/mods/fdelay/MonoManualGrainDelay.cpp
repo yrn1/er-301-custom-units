@@ -118,6 +118,10 @@ namespace fdelay
 
   void MonoManualGrainDelay::process()
   {
+    if (!mEnabled)
+    {
+      return;
+    }
     float *in = mInput.buffer();
     float *out = mOutput.buffer();
     float *trig = mTrigger.buffer();
@@ -158,21 +162,27 @@ namespace fdelay
         MonoGrain *grain = getNextFreeGrain();
         if (grain)
         {
-          float delay = mDelay.value();
           float duration = mDuration.value();
-          delay = delay / mMaxDelayInSeconds * (mMaxDelayInSeconds - duration);
+          if (duration >= mMaxDelayInSeconds)
+          {
+            duration = mMaxDelayInSeconds - 0.01f;
+          }
+          float delay = mDelay.value() / mMaxDelayInSeconds * (mMaxDelayInSeconds - duration);
 
           int durationSamples = duration * globalConfig.sampleRate;
-          int neededSamples = durationSamples * speed[i] + 1;
-          int delaySamples = delay * globalConfig.sampleRate + neededSamples;
+          int neededSamples = (durationSamples + 1) * speed[i];
+          int delaySamples = delay * globalConfig.sampleRate;
 
           int start = mMaxDelayInSamples - delaySamples;
           if (start < 0)
           {
             start = 0;
           }
+          if (start > mMaxDelayInSamples)
+          {
+            start = mMaxDelayInSamples;
+          }
 
-          // translate to fifo offset
           start += mSampleFifo.offsetToRecent(mMaxDelayInSamples + globalConfig.frameLength);
 
           float gain = mGainCompensation[mFreeGrains.size()];
