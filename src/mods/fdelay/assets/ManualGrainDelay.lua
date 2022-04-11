@@ -72,6 +72,8 @@ function ManualGrainDelay:onLoadGraph(channelCount)
 
   local limiterL = self:addObject("limiter", libcore.Limiter())
   limiterL:setOptionValue("Type", libcore.LIMITER_CUBIC)
+  local dc = self:addObject("dc", libcore.StereoFixedHPF())
+  dc:hardSet("Cutoff", 10)
 
   local eqL = self:createEq("eqL", eqHigh, eqMid, eqLow)
 
@@ -83,7 +85,8 @@ function ManualGrainDelay:onLoadGraph(channelCount)
   connect(grainL, "Out", eqL, "In")
   connect(eqL, "Out", feedbackGainL, "In")
   connect(eqL, "Out", xfade, "Left A")
-  connect(feedbackGainL, "Out", limiterL, "In")
+  connect(feedbackGainL, "Out", dc, "Left In")
+  connect(dc, "Left Out", limiterL, "In")
   connect(limiterL, "Out", feedbackMixL, "Right")
   connect(xfade, "Left Out", self, "Out1")
 
@@ -114,7 +117,8 @@ function ManualGrainDelay:onLoadGraph(channelCount)
     connect(grainR, "Out", eqR, "In")
     connect(eqR, "Out", feedbackGainR, "In")
     connect(eqR, "Out", xfade, "Right A")
-    connect(feedbackGainR, "Out", limiterR, "In")
+    connect(feedbackGainR, "Out", dc, "Right In")
+    connect(dc, "Right Out", limiterR, "In")
     connect(limiterR, "Out", feedbackMixR, "Right")
     connect(xfade, "Right Out", self, "Out2")
 

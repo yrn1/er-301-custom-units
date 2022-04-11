@@ -84,6 +84,11 @@ function TunedFilterDelay:onLoadGraph(channelCount)
   feedbackGainL:setClampInDecibels(-35.9)
   tie(feedbackGainL, "Gain", feedbackGainAdapter, "Out")
 
+  local limiterL = self:addObject("limiterL", libcore.Limiter())
+  limiterL:setOptionValue("Type", libcore.LIMITER_CUBIC)
+  local dc = self:addObject("dc", libcore.StereoFixedHPF())
+  dc:hardSet("Cutoff", 10)
+
   local eqL = self:createEq("eqL", eqHigh, eqMid, eqLow)
 
   connect(clippedDelayTime, "Out", delayL, "Delay")
@@ -95,7 +100,9 @@ function TunedFilterDelay:onLoadGraph(channelCount)
   connect(delayL, "Out", feedbackGainL, "In")
   connect(delayL, "Out", xfade, "Left A")
 
-  connect(feedbackGainL, "Out", feedbackMixL, "Right")
+  connect(feedbackGainL, "Out", dc, "Left In")
+  connect(dc, "Left Out", limiterL, "In")
+  connect(limiterL, "Out", feedbackMixL, "Right")
   connect(xfade, "Left Out", self, "Out1")
 
   -- Right
@@ -106,6 +113,9 @@ function TunedFilterDelay:onLoadGraph(channelCount)
     feedbackGainR:setClampInDecibels(-35.9)
     tie(feedbackGainR, "Gain", feedbackGainAdapter, "Out")
   
+    local limiterR = self:addObject("limiterR", libcore.Limiter())
+    limiterR:setOptionValue("Type", libcore.LIMITER_CUBIC)
+
     local eqR = self:createEq("eqR", eqHigh, eqMid, eqLow)
   
     connect(clippedDelayTime, "Out", delayR, "Delay")
@@ -117,7 +127,9 @@ function TunedFilterDelay:onLoadGraph(channelCount)
     connect(delayR, "Out", feedbackGainR, "In")
     connect(delayR, "Out", xfade, "Right A")
   
-    connect(feedbackGainR, "Out", feedbackMixR, "Right")
+    connect(feedbackGainR, "Out", dc, "Right In")
+    connect(dc, "Right Out", limiterR, "In")
+    connect(limiterR, "Out", feedbackMixR, "Right")
     connect(xfade, "Right Out", self, "Out2")
     end
 end

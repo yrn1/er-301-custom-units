@@ -67,8 +67,10 @@ function FilterDelay:onLoadGraph(channelCount)
   local feedbackGainL = self:addObject("feedbackGainL", app.ConstantGain())
   feedbackGainL:setClampInDecibels(-35.9)
 
-  local limiterL = self:addObject("limiter", libcore.Limiter())
+  local limiterL = self:addObject("limiterL", libcore.Limiter())
   limiterL:setOptionValue("Type", libcore.LIMITER_CUBIC)
+  local dc = self:addObject("dc", libcore.StereoFixedHPF())
+  dc:hardSet("Cutoff", 10)
 
   local eqL = self:createEq("eqL", eqHigh, eqMid, eqLow)
 
@@ -87,7 +89,8 @@ function FilterDelay:onLoadGraph(channelCount)
     connect(delay, "Left Out", feedbackGainL, "In")
     connect(delay, "Left Out", xfade, "Left A")
   end
-  connect(feedbackGainL, "Out", limiterL, "In")
+  connect(feedbackGainL, "Out", dc, "Left In")
+  connect(dc, "Left Out", limiterL, "In")
   connect(limiterL, "Out", feedbackMixL, "Right")
   connect(xfade, "Left Out", self, "Out1")
 
@@ -101,7 +104,7 @@ function FilterDelay:onLoadGraph(channelCount)
     local feedbackGainR = self:addObject("feedbackGainR", app.ConstantGain())
     feedbackGainR:setClampInDecibels(-35.9)
 
-    local limiterR = self:addObject("limiter", libcore.Limiter())
+    local limiterR = self:addObject("limiterR", libcore.Limiter())
     limiterR:setOptionValue("Type", libcore.LIMITER_CUBIC)
 
     local eqR = self:createEq("eqR", eqHigh, eqMid, eqLow)
@@ -116,7 +119,8 @@ function FilterDelay:onLoadGraph(channelCount)
     connect(eqR, "Out", delay, "Right In")
     connect(delay, "Left Out", feedbackGainR, "In")
     connect(delay, "Left Out", xfade, "Right A")
-    connect(feedbackGainR, "Out", limiterR, "In")
+    connect(feedbackGainR, "Out", dc, "Right In")
+    connect(dc, "Right Out", limiterR, "In")
     connect(limiterR, "Out", feedbackMixR, "Right")
     connect(xfade, "Right Out", self, "Out2")
   end
