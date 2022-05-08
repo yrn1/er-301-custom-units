@@ -43,6 +43,14 @@ return {
       title = "Double Expo",
       moduleName = "DoubleExpo",
       keywords = "modulate"
+    }, {
+      title = "Fixed HPFx2",
+      moduleName = "FixedHPFx2",
+      keywords = "filter"
+    }, {
+      title = "Fixed HPFx4",
+      moduleName = "FixedHPFx4",
+      keywords = "filter"
     }
   }
 }
