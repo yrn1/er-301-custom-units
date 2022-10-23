@@ -61,6 +61,9 @@ function TwoTapDelay:onLoadGraph(channelCount)
   local div2 = self:createAdapterControl("div2")
 
   local width = self:createAdapterControl("width")
+  if channelCount == 1 then
+    width:hardSet("Value", 0)
+  end
 
   local feedbackGainAdapter = self:createAdapterControl("feedbackGainAdapter")
 
@@ -76,9 +79,7 @@ function TwoTapDelay:onLoadGraph(channelCount)
   feedbackGainL:setClampInDecibels(-35.9)
 
   local panL = self:addObject("panL", app.ConstantGain())
-  if channelCount == 1 then
-    panL:hardSet("Gain", 1)
-  end
+  tie(panL, "Gain", "function(x) return 1 - x end", width, "Out")
 
   local limiterL = self:addObject("limiterL", libcore.Limiter())
   limiterL:setOptionValue("Type", libcore.LIMITER_CUBIC)
@@ -96,8 +97,13 @@ function TwoTapDelay:onLoadGraph(channelCount)
   connect(feedbackMixL, "Out", eqL, "In")
   connect(eqL, "Out", delay1, "Left In")
   connect(eqL, "Out", delay2, "Left In")
-  connect(delay1, "Left Out", delayMixL, "Left")
-  connect(delay2, "Left Out", panL, "In")
+  if channelCount == 2 then
+    connect(delay1, "Right Out", delayMixL, "Left")
+    connect(delay2, "Right Out", panL, "In")
+  else
+    connect(delay1, "Left Out", delayMixL, "Left")
+    connect(delay2, "Left Out", panL, "In")
+  end
   connect(panL, "Out", delayMixL, "Right")
   connect(delayMixL, "Out", feedbackGainL, "In")
   connect(delayMixL, "Out", xfade, "Left A")
@@ -114,7 +120,6 @@ function TwoTapDelay:onLoadGraph(channelCount)
     feedbackGainR:setClampInDecibels(-35.9)
 
     local panR = self:addObject("panR", app.ConstantGain())
-    tie(panL, "Gain", "function(x) return 1 - x end", width, "Out")
     tie(panR, "Gain", "function(x) return 1 - x end", width, "Out")
 
     local limiterR = self:addObject("limiterR", libcore.Limiter())
@@ -131,9 +136,9 @@ function TwoTapDelay:onLoadGraph(channelCount)
     connect(feedbackMixR, "Out", eqR, "In")
     connect(eqR, "Out", delay1, "Right In")
     connect(eqR, "Out", delay2, "Right In")
-    connect(delay1, "Right Out", panR, "In")
+    connect(delay1, "Left Out", panR, "In")
     connect(panR, "Out", delayMixR, "Left")
-    connect(delay2, "Right Out", delayMixR, "Right")
+    connect(delay2, "Left Out", delayMixR, "Right")
     connect(delayMixR, "Out", feedbackGainR, "In")
     connect(delayMixR, "Out", xfade, "Right A")
     connect(feedbackGainR, "Out", dc, "Right In")
