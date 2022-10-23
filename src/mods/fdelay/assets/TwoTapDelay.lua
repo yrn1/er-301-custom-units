@@ -87,7 +87,7 @@ function TwoTapDelay:onLoadGraph(channelCount)
 
   local eqL = self:createEq("eqL", eqHigh, eqMid, eqLow)
 
-  tie(feedbackGainL, "Gain", feedbackGainAdapter, "Out")
+  tie(feedbackGainL, "Gain", "function(f, w) return f / (2 - w) end", feedbackGainAdapter, "Out", width, "Out")
   tie(delay1, "Left Delay", "function(x, m, d) return x / m * d end", tap, "Derived Period", mult1, "Out", div1, "Out")
   tie(delay2, "Left Delay", "function(x, m, d) return x / m * d end", tap, "Derived Period", mult2, "Out", div2, "Out")
 
@@ -122,7 +122,7 @@ function TwoTapDelay:onLoadGraph(channelCount)
 
     local eqR = self:createEq("eqR", eqHigh, eqMid, eqLow)
 
-    tie(feedbackGainR, "Gain", feedbackGainAdapter, "Out")
+    tie(feedbackGainR, "Gain", "function(f, w) return f / (2 - w) end", feedbackGainAdapter, "Out", width, "Out")
     tie(delay1, "Right Delay", "function(x, m, d) return x / m * d end", tap, "Derived Period", mult1, "Out", div1, "Out")
     tie(delay2, "Right Delay", "function(x, m, d) return x / m * d end", tap, "Derived Period", mult2, "Out", div2, "Out")
 
