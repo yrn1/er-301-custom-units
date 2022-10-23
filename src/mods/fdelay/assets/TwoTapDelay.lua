@@ -60,6 +60,8 @@ function TwoTapDelay:onLoadGraph(channelCount)
   local mult2 = self:createAdapterControl("mult2")
   local div2 = self:createAdapterControl("div2")
 
+  local width = self:createAdapterControl("width")
+
   local feedbackGainAdapter = self:createAdapterControl("feedbackGainAdapter")
 
   local tone = self:createControl("tone", app.GainBias())
@@ -72,6 +74,11 @@ function TwoTapDelay:onLoadGraph(channelCount)
   local feedbackMixL = self:addObject("feedbackMixL", app.Sum())
   local feedbackGainL = self:addObject("feedbackGainL", app.ConstantGain())
   feedbackGainL:setClampInDecibels(-35.9)
+
+  local panL = self:addObject("panL", app.ConstantGain())
+  if channelCount == 1 then
+    panL:hardSet("Gain", 1)
+  end
 
   local limiterL = self:addObject("limiterL", libcore.Limiter())
   limiterL:setOptionValue("Type", libcore.LIMITER_CUBIC)
@@ -90,7 +97,8 @@ function TwoTapDelay:onLoadGraph(channelCount)
   connect(eqL, "Out", delay1, "Left In")
   connect(eqL, "Out", delay2, "Left In")
   connect(delay1, "Left Out", delayMixL, "Left")
-  connect(delay2, "Left Out", delayMixL, "Right")
+  connect(delay2, "Left Out", panL, "In")
+  connect(panL, "Out", delayMixL, "Right")
   connect(delayMixL, "Out", feedbackGainL, "In")
   connect(delayMixL, "Out", xfade, "Left A")
   connect(feedbackGainL, "Out", dc, "Left In")
@@ -104,6 +112,10 @@ function TwoTapDelay:onLoadGraph(channelCount)
     local feedbackMixR = self:addObject("feedbackMixR", app.Sum())
     local feedbackGainR = self:addObject("feedbackGainR", app.ConstantGain())
     feedbackGainR:setClampInDecibels(-35.9)
+
+    local panR = self:addObject("panR", app.ConstantGain())
+    tie(panL, "Gain", "function(x) return 1 - x end", width, "Out")
+    tie(panR, "Gain", "function(x) return 1 - x end", width, "Out")
 
     local limiterR = self:addObject("limiterR", libcore.Limiter())
     limiterR:setOptionValue("Type", libcore.LIMITER_CUBIC)
@@ -119,7 +131,8 @@ function TwoTapDelay:onLoadGraph(channelCount)
     connect(feedbackMixR, "Out", eqR, "In")
     connect(eqR, "Out", delay1, "Right In")
     connect(eqR, "Out", delay2, "Right In")
-    connect(delay1, "Right Out", delayMixR, "Left")
+    connect(delay1, "Right Out", panR, "In")
+    connect(panR, "Out", delayMixR, "Left")
     connect(delay2, "Right Out", delayMixR, "Right")
     connect(delayMixR, "Out", feedbackGainR, "In")
     connect(delayMixR, "Out", xfade, "Right A")
@@ -143,12 +156,6 @@ local function feedbackMap()
   local map = app.LinearDialMap(-36, 6)
   map:setZero(-160)
   map:setSteps(6, 1, 0.1, 0.01);
-  return map
-end
-
-local function widthMap()
-  local map = app.LinearDialMap(0, 0.1)
-  map:setSteps(0.01, 0.001, 0.0001, 0.00001)
   return map
 end
 
@@ -207,7 +214,15 @@ function TwoTapDelay:onLoadViews(objects, branches)
 
   if self.channelCount == 2 then
     views.expanded = {
-      "clock", "mult1", "div1", "mult2", "div2", "feedback", "tone", "wet"
+      "clock", "mult1", "div1", "mult2", "div2", "feedback", "width", "tone", "wet"
+    }
+    controls.width = GainBias {
+      button = "width",
+      branch = branches.width,
+      description = "Stereo Width",
+      gainbias = objects.width,
+      range = objects.width,
+      biasMap = Encoder.getMap("unit")
     }
   else
     views.expanded = {
