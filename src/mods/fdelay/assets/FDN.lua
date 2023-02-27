@@ -44,6 +44,15 @@ function FDN:init(args)
   args.title = "Feedback Delay Network"
   args.mnemonic = "DN"
   args.version = 1
+
+  self.refl1 = 0.365994
+  self.refl2 = 0.573487
+  self.refl3 = 0.775216
+  self.refl4 = 1.0
+
+  self.refl1Max = 5.0
+  self.delayMax = self.refl1Max / self.refl1
+
   YBase.init(self, args)
 end
 
@@ -71,30 +80,29 @@ function FDN:onLoadGraph(channelCount)
   local eq3 = self:createEq("eq3", eqHigh, eqMid, eqLow)
   local eq4 = self:createEq("eq4", eqHigh, eqMid, eqLow)
 
-  local delay1 = self:addObject("delay1", libcore.DopplerDelay(5.0))
-  local delay2 = self:addObject("delay2", libcore.DopplerDelay(5.0))
-  local delay3 = self:addObject("delay3", libcore.DopplerDelay(5.0))
-  local delay4 = self:addObject("delay4", libcore.DopplerDelay(5.0))
+  local delay1 = self:addObject("delay1", libcore.DopplerDelay(self.delayMax + 0.1))
+  local delay2 = self:addObject("delay2", libcore.DopplerDelay(self.delayMax + 0.1))
+  local delay3 = self:addObject("delay3", libcore.DopplerDelay(self.delayMax + 0.1))
+  local delay4 = self:addObject("delay4", libcore.DopplerDelay(self.delayMax + 0.1))
   local delay = self:createControl("delay", app.GainBias())
   local delayTime1 = self:addObject("delayTime1", app.ConstantGain())
-  delayTime1:hardSet("Gain", 0.365994)
+  delayTime1:hardSet("Gain", 1.0)
   connect(delay, "Out", delayTime1, "In")
   local delayTime2 = self:addObject("delayTime2", app.ConstantGain())
-  delayTime2:hardSet("Gain", 0.573487)
+  delayTime2:hardSet("Gain", self.refl2 / self.refl1)
   connect(delay, "Out", delayTime2, "In")
   local delayTime3 = self:addObject("delayTime3", app.ConstantGain())
-  delayTime3:hardSet("Gain", 0.775216)
+  delayTime3:hardSet("Gain", self.refl3 / self.refl1)
   connect(delay, "Out", delayTime3, "In")
+  local delayTime4 = self:addObject("delayTime4", app.ConstantGain())
+  delayTime4:hardSet("Gain", self.refl4 / self.refl1)
+  connect(delay, "Out", delayTime4, "In")
 
   local modulation = self:createAdapterControl("modulation")
-  local modulatedDelayTime1 = self:modulate("modulatedDelayTime1", delayTime1,
-      modulation, 0.13)
-  local modulatedDelayTime2 = self:modulate("modulatedDelayTime2", delayTime2,
-      modulation, 0.17)
-  local modulatedDelayTime3 = self:modulate("modulatedDelayTime3", delayTime3,
-      modulation, 0.19)
-  local modulatedDelayTime4 = self:modulate("modulatedDelayTime4", delay,
-      modulation, 0.23)
+  local modulatedDelayTime1 = self:modulate("modulatedDelayTime1", delayTime1, modulation, 0.13)
+  local modulatedDelayTime2 = self:modulate("modulatedDelayTime2", delayTime2, modulation, 0.17)
+  local modulatedDelayTime3 = self:modulate("modulatedDelayTime3", delayTime3, modulation, 0.19)
+  local modulatedDelayTime4 = self:modulate("modulatedDelayTime4", delayTime4, modulation, 0.23)
 
   connect(modulatedDelayTime1, "Out", delay1, "Delay")
   connect(modulatedDelayTime2, "Out", delay2, "Delay")
@@ -236,20 +244,13 @@ function FDN:onLoadViews(objects, branches)
     collapsed = {}
   }
 
-  local allocated1 = self.objects.delay1:maximumDelayTime()
-  local allocated2 = self.objects.delay2:maximumDelayTime()
-  local allocated3 = self.objects.delay3:maximumDelayTime()
-  local allocated4 = self.objects.delay4:maximumDelayTime()
-  local allocated = math.min(allocated1, allocated2, allocated3, allocated4)
-  allocated = Utils.round(allocated, 1)
-
   controls.delay = GainBias {
-    button = "delay",
-    description = "Delay",
+    button = "1st refl",
+    description = "1st Reflection",
     branch = branches.delay,
     gainbias = objects.delay,
     range = objects.delayRange,
-    biasMap = timeMap(allocated, 100),
+    biasMap = timeMap(self.refl1Max, 100),
     initialBias = 0.3,
     biasUnits = app.unitSecs
   }

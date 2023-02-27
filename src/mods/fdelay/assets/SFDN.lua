@@ -44,6 +44,15 @@ function SFDN:init(args)
   args.title = "Simple Feedback Delay Network"
   args.mnemonic = "DN"
   args.version = 1
+
+  self.refl1 = 0.365994
+  self.refl2 = 0.573487
+  self.refl3 = 0.775216
+  self.refl4 = 1.0
+
+  self.refl1Max = 5.0
+  self.delayMax = self.refl1Max / self.refl1
+
   YBase.init(self, args)
 end
 
@@ -72,22 +81,24 @@ function SFDN:onLoadGraph(channelCount)
   local eq4 = self:createEq("eq4", eqHigh, eqMid, eqLow)
 
   local delay12 = self:addObject("delay12", libcore.Delay(2))
-  delay12:allocateTimeUpTo(5.0)
+  delay12:allocateTimeUpTo(self.delayMax + 0.1)
   local delay34 = self:addObject("delay34", libcore.Delay(2))
-  delay34:allocateTimeUpTo(5.0)
+  delay34:allocateTimeUpTo(self.delayMax + 0.1)
 
   local delayAdapter = self:createAdapterControl("delayAdapter")
   local delayScale1 = self:addObject("delayScale1", app.Constant())
-  delayScale1:hardSet("Value", 0.365994)
+  delayScale1:hardSet("Value", 1.0)
   local delayScale2 = self:addObject("delayScale2", app.Constant())
-  delayScale2:hardSet("Value", 0.573487)
+  delayScale2:hardSet("Value", self.refl2 / self.refl1)
   local delayScale3 = self:addObject("delayScale3", app.Constant())
-  delayScale3:hardSet("Value", 0.775216)
+  delayScale3:hardSet("Value", self.refl3 / self.refl1)
+  local delayScale4 = self:addObject("delayScale4", app.Constant())
+  delayScale4:hardSet("Value", self.refl4 / self.refl1)
 
   tie(delay12, "Left Delay", "*", delayScale1, "Value", delayAdapter, "Out")
   tie(delay12, "Right Delay", "*", delayScale2, "Value", delayAdapter, "Out")
   tie(delay34, "Left Delay", "*", delayScale3, "Value", delayAdapter, "Out")
-  tie(delay34, "Right Delay", delayAdapter, "Out")
+  tie(delay34, "Right Delay", "*", delayScale4, "Value",  delayAdapter, "Out")
 
   local dif11 = self:addObject("dif11", app.Sum())
   local dif11r = self:negative("dif11", dif11)
@@ -207,18 +218,13 @@ function SFDN:onLoadViews(objects, branches)
     collapsed = {}
   }
 
-  local allocated1 = self.objects.delay12:maximumDelayTime()
-  local allocated2 = self.objects.delay34:maximumDelayTime()
-  local allocated = math.min(allocated1, allocated2)
-  allocated = Utils.round(allocated, 1)
-
   controls.delay = GainBias {
-    button = "delay",
-    description = "Delay",
+    button = "1st refl",
+    description = "1st Reflection",
     branch = branches.delayAdapter,
     gainbias = objects.delayAdapter,
     range = objects.delayAdapter,
-    biasMap = timeMap(allocated, 100),
+    biasMap = timeMap(self.refl1Max, 100),
     initialBias = 0.3,
     biasUnits = app.unitSecs
   }
