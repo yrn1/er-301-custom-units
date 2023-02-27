@@ -32,6 +32,11 @@ return {
       moduleName = "FilterDelay",
       keywords = "delay, effect"
     }, {
+      title = "Dual Delay",
+      moduleName = "DualDelay",
+      keywords = "delay, effect",
+      channelCount = 2
+    }, {
       title = "Feedback Delay Network",
       moduleName = "FDN",
       keywords = "delay, reverb, effect"
