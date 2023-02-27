@@ -215,7 +215,7 @@ function DualDelay:onLoadViews(objects, branches)
     range = objects.delayLAdapter,
     biasMap = timeMap(10, 100),
     biasUnits = app.unitSecs,
-    initialBias = 0.5
+    initialBias = 2.11
   }
 
   controls.delayR = GainBias {
@@ -226,7 +226,7 @@ function DualDelay:onLoadViews(objects, branches)
     range = objects.delayRAdapter,
     biasMap = timeMap(10, 100),
     biasUnits = app.unitSecs,
-    initialBias = 0.7
+    initialBias = 2.3
   }
 
   controls.feedback = GainBias {
