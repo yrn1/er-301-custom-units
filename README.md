@@ -5,3 +5,12 @@ This repository contains bespoke units for the ER-301 module by Orthogonal Devic
 # Thanks
 
 Muchas gracias to [Tom Fiset](https://github.com/tmfset) for the basic skeleton to build custom units.
+
+# Build
+
+During development: `make fdelay-emu` to build and run emulator.
+
+For release:
+
+- start docker
+- run `make release`
