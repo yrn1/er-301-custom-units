@@ -49,14 +49,11 @@ function DualDelay:onLoadGraph(channelCount)
   local fader = self:createControl("fader", app.GainBias())
   connect(fader, "Out", xfade, "Fade")
 
-  local feedbackXfader = self:createControl("feedbackXfader", app.GainBias())
-  local feedbackXfade = self:addObject("feedbackXfade", app.StereoCrossFade())
-  connect(feedbackXfader, "Out", feedbackXfade, "Fade")
-
   local delay = self:addObject("delay", libcore.Delay(2))
   delay:hardSet("Spread", 0.0)
 
   local feedbackGainAdapter = self:createAdapterControl("feedbackGainAdapter")
+  local feedbackXMixAdapter = self:createAdapterControl("feedbackXMixAdapter")
 
   local tone = self:createControl("tone", app.GainBias())
   local eqHigh = self:createEqHighControl(tone)
@@ -66,14 +63,17 @@ function DualDelay:onLoadGraph(channelCount)
   local dc = self:addObject("dc", libcore.StereoFixedHPF())
   dc:hardSet("Cutoff", 10)
 
-  -- Left
+  -- Left Setup
   local inLevelL = self:addObject("inLevelL", app.ConstantGain())
   tie(inLevelL, "Gain", inLevelAdapter, "Out")
 
   local feedbackMixL = self:addObject("feedbackMixL", app.Sum())
   local feedbackGainL = self:addObject("feedbackGainL", app.ConstantGain())
   feedbackGainL:setClampInDecibels(-35.9)
-  tie(feedbackGainL, "Gain", feedbackGainAdapter, "Out")
+  local feedbackFromRMixL = self:addObject("feedbackFromRMixL", app.Sum())
+  local feedbackFromRGainL = self:addObject("feedbackFromRGainL", app.ConstantGain())
+  tie(feedbackGainL, "Gain", "function(m,x) return m - (m * x) end", feedbackGainAdapter, "Out", feedbackXMixAdapter, "Out")
+  tie(feedbackFromRGainL, "Gain", "function(m,x) return m * x end", feedbackGainAdapter, "Out", feedbackXMixAdapter, "Out")
 
   local limiterL = self:addObject("limiterL", libcore.Limiter())
   limiterL:setOptionValue("Type", libcore.LIMITER_CUBIC)
@@ -83,49 +83,56 @@ function DualDelay:onLoadGraph(channelCount)
   local delayLAdapter = self:createAdapterControl("delayLAdapter")
   tie(delay, "Left Delay", delayLAdapter, "Out")
 
-  connect(self, "In1", xfade, "Left B")
-  connect(self, "In1", inLevelL, "In")
-  connect(inLevelL, "Out", feedbackMixL, "Left")
-  connect(feedbackMixL, "Out", eqL, "In")
-  connect(eqL, "Out", delay, "Left In")
-  connect(delay, "Left Out", feedbackGainL, "In")
-  connect(delay, "Left Out", xfade, "Left A")
-  connect(feedbackGainL, "Out", dc, "Left In")
-  connect(dc, "Left Out", feedbackXfade, "Left A")
-  connect(dc, "Left Out", feedbackXfade, "Right B")
-  connect(feedbackXfade, "Left Out", limiterL, "In")
-  connect(limiterL, "Out", feedbackMixL, "Right")
-  connect(xfade, "Left Out", self, "Out1")
-
-  -- Right
+  -- Right Setup
   local inLevelR = self:addObject("inLevelR", app.ConstantGain())
   tie(inLevelR, "Gain", inLevelAdapter, "Out")
   
   local feedbackMixR = self:addObject("feedbackMixR", app.Sum())
   local feedbackGainR = self:addObject("feedbackGainR", app.ConstantGain())
   feedbackGainR:setClampInDecibels(-35.9)
-  tie(feedbackGainR, "Gain", feedbackGainAdapter, "Out")
-
+  local feedbackFromLMixR = self:addObject("feedbackFromLMixR", app.Sum())
+  local feedbackFromLGainR = self:addObject("feedbackFromLGainR", app.ConstantGain())
+  tie(feedbackGainR, "Gain", "function(m,x) return m - (m * x) end", feedbackGainAdapter, "Out", feedbackXMixAdapter, "Out")
+  tie(feedbackFromLGainR, "Gain", "function(m,x) return m * x end", feedbackGainAdapter, "Out", feedbackXMixAdapter, "Out")
+  
   local limiterR = self:addObject("limiterR", libcore.Limiter())
   limiterR:setOptionValue("Type", libcore.LIMITER_CUBIC)
-
+  
   local eqR = self:createEq("eqR", eqHigh, eqMid, eqLow)
-
+  
   local delayRAdapter = self:createAdapterControl("delayRAdapter")
   tie(delay, "Right Delay", delayRAdapter, "Out")
 
+  -- Left Connect
+  connect(self, "In1", xfade, "Left B")
+  connect(self, "In1", inLevelL, "In")
+  connect(inLevelL, "Out", feedbackMixL, "Left")
+  connect(feedbackMixL, "Out", feedbackFromRMixL, "Left")
+  connect(feedbackFromRMixL, "Out", eqL, "In")
+  connect(eqL, "Out", limiterL, "In")
+  connect(limiterL, "Out", dc, "Left In")
+  connect(dc, "Left Out", delay, "Left In")
+  connect(delay, "Left Out", feedbackGainL, "In")
+  connect(delay, "Left Out", feedbackFromLGainR, "In")
+  connect(delay, "Left Out", xfade, "Left A")
+  connect(feedbackGainL, "Out", feedbackMixL, "Right")
+  connect(feedbackFromLGainR, "Out", feedbackFromLMixR, "Right")
+  connect(xfade, "Left Out", self, "Out1")
+
+  -- Right Connect
   connect(self, "In2", xfade, "Right B")
   connect(self, "In2", inLevelR, "In")
   connect(inLevelR, "Out", feedbackMixR, "Left")
-  connect(feedbackMixR, "Out", eqR, "In")
-  connect(eqR, "Out", delay, "Right In")
+  connect(feedbackMixR, "Out", feedbackFromLMixR, "Left")
+  connect(feedbackFromLMixR, "Out", eqR, "In")
+  connect(eqR, "Out", limiterR, "In")
+  connect(limiterR, "Out", dc, "Right In")
+  connect(dc, "Right Out", delay, "Right In")
   connect(delay, "Right Out", feedbackGainR, "In")
+  connect(delay, "Right Out", feedbackFromRGainL, "In")
   connect(delay, "Right Out", xfade, "Right A")
-  connect(feedbackGainR, "Out", dc, "Right In")
-  connect(dc, "Right Out", feedbackXfade, "Right A")
-  connect(dc, "Right Out", feedbackXfade, "Left B")
-  connect(feedbackXfade, "Right Out", limiterR, "In")
-  connect(limiterR, "Out", feedbackMixR, "Right")
+  connect(feedbackGainR, "Out", feedbackMixR, "Right")
+  connect(feedbackFromRGainL, "Out", feedbackFromRMixL, "Right")
   connect(xfade, "Right Out", self, "Out2")
 end
 
@@ -208,7 +215,7 @@ function DualDelay:onLoadViews(objects, branches)
     range = objects.delayLAdapter,
     biasMap = timeMap(10, 100),
     biasUnits = app.unitSecs,
-    initialBias = 2.1
+    initialBias = 0.5
   }
 
   controls.delayR = GainBias {
@@ -219,7 +226,7 @@ function DualDelay:onLoadViews(objects, branches)
     range = objects.delayRAdapter,
     biasMap = timeMap(10, 100),
     biasUnits = app.unitSecs,
-    initialBias = 2.3
+    initialBias = 0.7
   }
 
   controls.feedback = GainBias {
@@ -237,9 +244,9 @@ function DualDelay:onLoadViews(objects, branches)
   controls.xmix = GainBias {
     button = "xmix",
     description = "Feedback Crossmix",
-    branch = branches.feedbackXfader,
-    gainbias = objects.feedbackXfader,
-    range = objects.feedbackXfader,
+    branch = branches.feedbackXMixAdapter,
+    gainbias = objects.feedbackXMixAdapter,
+    range = objects.feedbackXMixAdapter,
     biasMap = Encoder.getMap("unit"),
     initialBias = 0
   }
