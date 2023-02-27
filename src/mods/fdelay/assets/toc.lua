@@ -32,10 +32,6 @@ return {
       moduleName = "FilterDelay",
       keywords = "delay, effect"
     }, {
-      title = "Two Tap Delay",
-      moduleName = "TwoTapDelay",
-      keywords = "delay, effect"
-    }, {
       title = "Feedback Delay Network",
       moduleName = "FDN",
       keywords = "delay, reverb, effect"
