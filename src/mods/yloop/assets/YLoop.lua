@@ -40,7 +40,7 @@ end
 
 function YLoop:onLoadGraph(channelCount)
   local recordGate = self:addObject("recordGate", app.Comparator())
-  recordGate:setOptionValue("Mode", app.COMPARATOR_GATE)
+  recordGate:setGateMode()
   self:addMonoBranch("recordGate", recordGate, "In", recordGate, "Out")
   
   local recordSlew = self:addObject("recordSlew", libcore.SlewLimiter())
@@ -73,12 +73,39 @@ function YLoop:onLoadGraph(channelCount)
   connect(feedback, "Out", feedbackRange, "In")
   self:addMonoBranch("feedback", feedback, "In", feedback, "Out")
   connect(feedback, "Out", delay, "Feedback")
+
+  local negRecordGate = self:addObject("negRecordGate", app.ConstantGain())
+  negRecordGate:hardSet("Gain", -1.0)
+  local negFeedback = self:addObject("negFeedback", app.ConstantGain())
+  negFeedback:hardSet("Gain", -1.0)
+  local onceTriggerComparator = self:addObject("onceTriggerComparator", app.Comparator())
+  onceTriggerComparator:setTriggerOnRiseMode()
+  onceTriggerComparator:hardSet("Threshold", -0.1)
+  local onceResetComparator = self:addObject("onceResetComparator", app.Comparator())
+  onceResetComparator:setTriggerOnRiseMode()
+  onceResetComparator:hardSet("Threshold", -0.1)
+  local onceCounter = self:addObject("onceCounter", libcore.Counter())
+  onceCounter:hardSet("Step Size", 1)
+  onceCounter:hardSet("Start", 1)
+  onceCounter:hardSet("Value", 1)
+  onceCounter:hardSet("Finish", 0)
+  onceCounter:setOptionValue("Wrap", app.CHOICE_NO)
+  onceCounter:setOptionValue("Processing Rate", app.PER_FRAME)
+  local onceRecordGate = self:addObject("onceRecordGate", app.Multiply())
+  connect(recordGate, "Out", negRecordGate, "In")
+  connect(negRecordGate, "Out", onceTriggerComparator, "In")
+  connect(feedback, "Out", negFeedback, "In")
+  connect(negFeedback, "Out", onceResetComparator, "In")
+  connect(onceTriggerComparator, "Out", onceCounter, "In")
+  connect(onceResetComparator, "Out", onceCounter, "Reset")
+  connect(recordGate, "Out", onceRecordGate, "Left")
+  connect(onceCounter, "Out", onceRecordGate, "Right")
 end
 
 function YLoop:onLoadViews(objects, branches)
   local controls = {}
   local views = {
-    expanded = {"record", "delay", "feedback"},
+    expanded = {"record", "once", "delay", "feedback"},
     collapsed = {}
   }
 
