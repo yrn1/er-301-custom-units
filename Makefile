@@ -1,6 +1,6 @@
 # top-level makefile
 
-PROJECTS = fdelay yutil
+PROJECTS = fdelay yloop yutil
 
 docker_image = er-301-am335x-build-env
 
