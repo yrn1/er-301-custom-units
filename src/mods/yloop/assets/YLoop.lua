@@ -27,6 +27,7 @@ local Encoder = require "Encoder"
 local libcore = require "core.libcore"
 local Gate = require "Unit.ViewControl.Gate"
 local GainBias = require "Unit.ViewControl.GainBias"
+local libyloop = require "yloop.libyloop"
 
 local YLoop = Class {}
 YLoop:include(Unit)
@@ -35,6 +36,9 @@ function YLoop:init(args)
   args.title = "Y Looper"
   args.mnemonic = "YLoop"
   args.version = 1
+
+  self.maxDelay = 6.0
+
   Unit.init(self, args)
 end
 
@@ -57,7 +61,7 @@ function YLoop:onLoadGraph(channelCount)
   connect(recordSlew, "Out", inputR, "Right")
   
   local delay = self:addObject("delay", libcore.Delay(2))
-  delay:allocateTimeUpTo(60.0)
+  delay:allocateTimeUpTo(self.maxDelay)
   connect(inputL, "Out", delay, "Left In")
   connect(inputR, "Out", delay, "Right In")
   connect(delay, "Left Out", self, "Out1")
@@ -65,8 +69,6 @@ function YLoop:onLoadGraph(channelCount)
   
   local delayTimeFraction = self:addObject("delayTimeFraction", app.ParameterAdapter())
   self:addMonoBranch("delayTimeFraction", delayTimeFraction, "In", delayTimeFraction, "Out")
-  tie(delay, "Left Delay", "function(f) return f * 1 end", delayTimeFraction, "Out")
-  tie(delay, "Right Delay", "function(f) return f * 1 end", delayTimeFraction, "Out")
 
   local feedback = self:addObject("feedback", app.GainBias())
   local feedbackRange = self:addObject("feedbackRange", app.MinMax())
@@ -74,6 +76,7 @@ function YLoop:onLoadGraph(channelCount)
   self:addMonoBranch("feedback", feedback, "In", feedback, "Out")
   connect(feedback, "Out", delay, "Feedback")
 
+  -- onceRecordGate == recordGate only the first time, until reset by making feedback 0
   local negRecordGate = self:addObject("negRecordGate", app.ConstantGain())
   negRecordGate:hardSet("Gain", -1.0)
   local negFeedback = self:addObject("negFeedback", app.ConstantGain())
@@ -100,6 +103,17 @@ function YLoop:onLoadGraph(channelCount)
   connect(onceResetComparator, "Out", onceCounter, "Reset")
   connect(recordGate, "Out", onceRecordGate, "Left")
   connect(onceCounter, "Out", onceRecordGate, "Right")
+  local onceRecordTrigger = self:addObject("onceRecordTrigger", app.Comparator())
+  onceRecordTrigger:setTriggerOnRiseMode()
+  connect(onceRecordGate, "Out", onceRecordTrigger, "In")
+  -- onceRecordGate end
+
+  local stopwatch = self:addObject("stopwatch", libyloop.Stopwatch())
+  stopwatch:hardSet("Max", self.maxDelay)
+  connect(onceRecordGate, "Out", stopwatch, "In")
+
+  tie(delay, "Left Delay", "function(t) return t end", stopwatch, "Out")
+  tie(delay, "Right Delay", "function(t, f) return t * f end", stopwatch, "Out", delayTimeFraction, "Out")
 end
 
 function YLoop:onLoadViews(objects, branches)

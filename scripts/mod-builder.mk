@@ -53,7 +53,7 @@ endif
 
 ifeq ($(ARCH),darwin)
   CFLAGS.darwin = -Wno-deprecated-declarations -march=native -fPIC
-  LFLAGS = -dynamic -undefined dynamic_lookup -lSystem
+  LFLAGS = -dynamic -undefined dynamic_lookup -lSystem -ld_classic
 endif
 
 CFLAGS.common = -Wall -ffunction-sections -fdata-sections
@@ -96,7 +96,7 @@ $(ASSEMBLY): $(HEADERS) Makefile
 
 $(LIB_FILE): $(OBJECTS)
 ifneq ($(strip $(OBJECTS)),)
-	@echo [LINK $@ $(OBJECTS)]
+	@echo [LINK $@ $(OBJECTS)] JEROEN $(CC) $(CFLAGS) -o $@ $(OBJECTS) $(LFLAGS)
 	@$(CC) $(CFLAGS) -o $@ $(OBJECTS) $(LFLAGS)
 else
 	@echo [NO OBJECTS]
@@ -109,8 +109,8 @@ $(PACKAGE_DIR): $(LIB_FILE) $(ASSETS)
 	@test -f $(LIB_FILE) && cp $(LIB_FILE) $@/ || true
 	@rsync -ru $(MOD_ASSETS_DIR)/ $@/
 	@# @rsync -ru $(COMMON_ASSETS_DIR)/ $@/
-	@find $@ -type f -name "*.lua" -print0 | xargs -0 sed -i.bak 's/common\.assets/$(PKGNAME)/g'
-	@find $@ -type f -name "*.bak" -print0 | xargs -0 rm
+	@# find $@ -type f -name "*.lua" -print0 | xargs -0 sed -i.bak 's/common\.assets/$(PKGNAME)/g'
+	@# find $@ -type f -name "*.bak" -print0 | xargs -0 rm
 
 .PHONY: $(PACKAGE_DIR)
 
