@@ -75,7 +75,46 @@ function YLoop:onLoadGraph(channelCount)
   connect(recordSlew, "Out", inputL, "Right")
   connect(self, "In2", inputR, "Left")
   connect(recordSlew, "Out", inputR, "Right")
-    
+
+  -- Feedback suppression
+  local suppFBIn = self:addObject("suppFBIn", app.Sum())
+  local suppFBEnv = self:addObject("suppFBEnv", libcore.EnvelopeFollower())
+  suppFBEnv:hardSet("Attack Time", 0.050)
+  suppFBEnv:hardSet("Release Time", 0.200)
+  local suppFBLevel = self:addObject("suppFBLevel", app.Multiply())
+  local suppFBScale = self:addObject("suppFBScale", app.GainBias())
+  suppFBScale:hardSet("Gain", -2.0)
+  suppFBScale:hardSet("Bias", 1.0)
+  local suppFB = self:addObject("suppFB", libcore.Clipper(0.0, 1.0))
+  local feedbackSupp = self:addObject("feedbackSupp", app.Multiply())
+  connect(inputL, "Out", suppFBIn, "Left")
+  connect(inputR, "Out", suppFBIn, "Right")
+  connect(suppFBIn, "Out", suppFBEnv, "In")
+  connect(suppFBEnv, "Out", suppFBLevel, "Left")
+  connect(suppression, "Out", suppFBLevel, "Right")
+  connect(suppFBLevel, "Out", suppFBScale, "In")
+  connect(suppFBScale, "Out", suppFB, "In")
+  connect(suppFB, "Out", feedbackSupp, "Left")
+  connect(feedback, "Out", feedbackSupp, "Right")
+
+  -- Output suppression
+  local suppOutIn = self:addObject("suppOutIn", app.Sum())
+  local suppOutEnv = self:addObject("suppOutEnv", libcore.EnvelopeFollower())
+  suppOutEnv:hardSet("Attack Time", 0.050)
+  suppOutEnv:hardSet("Release Time", 0.200)
+  local suppOutLevel = self:addObject("suppOutLevel", app.Multiply())
+  local suppOutScale = self:addObject("suppOutScale", app.GainBias())
+  suppOutScale:hardSet("Gain", -2.0)
+  suppOutScale:hardSet("Bias", 1.0)
+  local suppOut = self:addObject("suppOut", libcore.Clipper(0.0, 1.0))
+  connect(self, "In1", suppOutIn, "Left")
+  connect(self, "In2", suppOutIn, "Right")
+  connect(suppOutIn, "Out", suppOutEnv, "In")
+  connect(suppOutEnv, "Out", suppOutLevel, "Left")
+  connect(suppression, "Out", suppOutLevel, "Right")
+  connect(suppOutLevel, "Out", suppOutScale, "In")
+  connect(suppOutScale, "Out", suppOut, "In")
+  
   -- onceRecordGate == recordGate only the first time, until reset by making feedback 0
   local negRecordGate = self:addObject("negRecordGate", app.ConstantGain())
   negRecordGate:hardSet("Gain", -1.0)
@@ -111,18 +150,24 @@ function YLoop:onLoadGraph(channelCount)
 
   -- hooking it all up to the delay lines
   local delay = self:addObject("delay", libcore.Delay(2))
+  local outL = self:addObject("outL", app.Multiply())
+  local outR = self:addObject("outR", app.Multiply())
   delay:allocateTimeUpTo(self.maxDelay)
   connect(inputL, "Out", delay, "Left In")
   connect(inputR, "Out", delay, "Right In")
-  connect(delay, "Left Out", self, "Out1")
-  connect(delay, "Right Out", self, "Out2")
+  connect(delay, "Left Out", outL, "Left")
+  connect(delay, "Right Out", outR, "Left")
+  connect(suppOut, "Out", outL, "Right")
+  connect(suppOut, "Out", outR, "Right")
+  connect(outL, "Out", self, "Out1")
+  connect(outR, "Out", self, "Out2")
 
   tie(delay, "Left Delay", "function(t, f) return math.max(0.01, math.floor(48.0 * t * f) / 48.0) end",
     stopwatch, "Out", sizeFraction, "Out")
   tie(delay, "Right Delay", "function(t, f, r, o) return math.max(0.01, math.floor(48.0 * t * f * math.max(o, r)) / 48.0) end",
     stopwatch, "Out", sizeFraction, "Out", rlFraction, "Out", onceCounter, "Value")
 
-  connect(feedback, "Out", delay, "Feedback")
+  connect(feedbackSupp, "Out", delay, "Feedback")
 end
 
 function YLoop:onLoadViews(objects, branches)
