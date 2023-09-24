@@ -61,8 +61,8 @@ function YLoop:onLoadGraph(channelCount)
 
   local suppression = self:addObject("suppression", app.ParameterAdapter())
   self:addMonoBranch("suppression", suppression, "In", suppression, "Out")
-  -- controls end
 
+  -- Input and recording
   local recordSlew = self:addObject("recordSlew", libcore.SlewLimiter())
   recordSlew:hardSet("Time", 0.25)
   
@@ -103,11 +103,8 @@ function YLoop:onLoadGraph(channelCount)
   connect(onceResetComparator, "Out", onceCounter, "Reset")
   connect(recordGate, "Out", onceRecordGate, "Left")
   connect(onceCounter, "Out", onceRecordGate, "Right")
-  local onceRecordTrigger = self:addObject("onceRecordTrigger", app.Comparator())
-  onceRecordTrigger:setTriggerOnRiseMode()
-  connect(onceRecordGate, "Out", onceRecordTrigger, "In")
-  -- onceRecordGate end
 
+  -- timing first recording length
   local stopwatch = self:addObject("stopwatch", libyloop.Stopwatch())
   stopwatch:hardSet("Max", self.maxDelay)
   connect(onceRecordGate, "Out", stopwatch, "In")
