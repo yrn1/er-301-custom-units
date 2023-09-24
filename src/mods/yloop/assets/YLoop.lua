@@ -37,7 +37,7 @@ function YLoop:init(args)
   args.mnemonic = "YLoop"
   args.version = 1
 
-  self.maxDelay = 6.0
+  self.maxDelay = 60.0
 
   Unit.init(self, args)
 end
@@ -120,8 +120,10 @@ function YLoop:onLoadGraph(channelCount)
   connect(delay, "Left Out", self, "Out1")
   connect(delay, "Right Out", self, "Out2")
 
-  tie(delay, "Left Delay", "function(t, f) return t * f end", stopwatch, "Out", sizeFraction, "Out")
-  tie(delay, "Right Delay", "function(t, f, r) return t * f * r end", stopwatch, "Out", sizeFraction, "Out", rlFraction, "Out")
+  tie(delay, "Left Delay", "function(t, f) return math.max(0.01, math.floor(48.0 * t * f) / 48.0) end",
+    stopwatch, "Out", sizeFraction, "Out")
+  tie(delay, "Right Delay", "function(t, f, r, o) return math.max(0.01, math.floor(48.0 * t * f * math.max(o, r)) / 48.0) end",
+    stopwatch, "Out", sizeFraction, "Out", rlFraction, "Out", onceCounter, "Value")
 
   connect(feedback, "Out", delay, "Feedback")
 end
