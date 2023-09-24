@@ -24,19 +24,15 @@ namespace yloop
     for (uint32_t i = 0; i < globalConfig.frameLength; i++) {
       if (in[i] > 0.0f) {
         mHighCount++;
-        out[i] = max;
+        out[i] = MIN(mHighCount * globalConfig.samplePeriod, max) + 20 * globalConfig.frameLength * globalConfig.samplePeriod;
       } else {
         if (mHighCount > 0) {
-          mTime = MIN(mHighCount * globalConfig.samplePeriod, max);
+          mTime = MIN(mHighCount * globalConfig.samplePeriod, max) + 20 * globalConfig.frameLength * globalConfig.samplePeriod;
           mHighCount = 0;
         }
         out[i] = mTime;
       }
     }
-    if (in[globalConfig.frameLength - 1] > 0.0f) {
-      mValue.hardSet(max);
-    } else {
-      mValue.hardSet(mTime);
-    }
+    mValue.hardSet(out[globalConfig.frameLength - 1]);
   }
 } /* namespace yloop */
