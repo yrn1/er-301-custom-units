@@ -43,10 +43,26 @@ function YLoop:init(args)
 end
 
 function YLoop:onLoadGraph(channelCount)
+  -- controls
   local recordGate = self:addObject("recordGate", app.Comparator())
   recordGate:setGateMode()
   self:addMonoBranch("recordGate", recordGate, "In", recordGate, "Out")
   
+  local sizeFraction = self:addObject("sizeFraction", app.ParameterAdapter())
+  self:addMonoBranch("sizeFraction", sizeFraction, "In", sizeFraction, "Out")
+
+  local rlFraction = self:addObject("rlFraction", app.ParameterAdapter())
+  self:addMonoBranch("rlFraction", rlFraction, "In", rlFraction, "Out")
+
+  local feedback = self:addObject("feedback", app.GainBias())
+  local feedbackRange = self:addObject("feedbackRange", app.MinMax())
+  connect(feedback, "Out", feedbackRange, "In")
+  self:addMonoBranch("feedback", feedback, "In", feedback, "Out")
+
+  local suppression = self:addObject("suppression", app.ParameterAdapter())
+  self:addMonoBranch("suppression", suppression, "In", suppression, "Out")
+  -- controls end
+
   local recordSlew = self:addObject("recordSlew", libcore.SlewLimiter())
   recordSlew:hardSet("Time", 0.25)
   
@@ -59,23 +75,7 @@ function YLoop:onLoadGraph(channelCount)
   connect(recordSlew, "Out", inputL, "Right")
   connect(self, "In2", inputR, "Left")
   connect(recordSlew, "Out", inputR, "Right")
-  
-  local delay = self:addObject("delay", libcore.Delay(2))
-  delay:allocateTimeUpTo(self.maxDelay)
-  connect(inputL, "Out", delay, "Left In")
-  connect(inputR, "Out", delay, "Right In")
-  connect(delay, "Left Out", self, "Out1")
-  connect(delay, "Right Out", self, "Out2")
-  
-  local delayTimeFraction = self:addObject("delayTimeFraction", app.ParameterAdapter())
-  self:addMonoBranch("delayTimeFraction", delayTimeFraction, "In", delayTimeFraction, "Out")
-
-  local feedback = self:addObject("feedback", app.GainBias())
-  local feedbackRange = self:addObject("feedbackRange", app.MinMax())
-  connect(feedback, "Out", feedbackRange, "In")
-  self:addMonoBranch("feedback", feedback, "In", feedback, "Out")
-  connect(feedback, "Out", delay, "Feedback")
-
+    
   -- onceRecordGate == recordGate only the first time, until reset by making feedback 0
   local negRecordGate = self:addObject("negRecordGate", app.ConstantGain())
   negRecordGate:hardSet("Gain", -1.0)
@@ -112,14 +112,24 @@ function YLoop:onLoadGraph(channelCount)
   stopwatch:hardSet("Max", self.maxDelay)
   connect(onceRecordGate, "Out", stopwatch, "In")
 
-  tie(delay, "Left Delay", "function(t) return t end", stopwatch, "Out")
-  tie(delay, "Right Delay", "function(t, f) return t * f end", stopwatch, "Out", delayTimeFraction, "Out")
+  -- hooking it all up to the delay lines
+  local delay = self:addObject("delay", libcore.Delay(2))
+  delay:allocateTimeUpTo(self.maxDelay)
+  connect(inputL, "Out", delay, "Left In")
+  connect(inputR, "Out", delay, "Right In")
+  connect(delay, "Left Out", self, "Out1")
+  connect(delay, "Right Out", self, "Out2")
+
+  tie(delay, "Left Delay", "function(t, f) return t * f end", stopwatch, "Out", sizeFraction, "Out")
+  tie(delay, "Right Delay", "function(t, f, r) return t * f * r end", stopwatch, "Out", sizeFraction, "Out", rlFraction, "Out")
+
+  connect(feedback, "Out", delay, "Feedback")
 end
 
 function YLoop:onLoadViews(objects, branches)
   local controls = {}
   local views = {
-    expanded = {"record", "once", "delay", "feedback"},
+    expanded = {"record", "delay", "rl", "feedback", "suppression"},
     collapsed = {}
   }
 
@@ -131,21 +141,41 @@ function YLoop:onLoadViews(objects, branches)
   }
 
   controls.delay = GainBias {
-    button = "delay",
-    description = "Fraction of total",
-    branch = branches.delayTimeFraction,
-    gainbias = objects.delayTimeFraction,
-    range = objects.delayTimeFraction,
+    button = "size",
+    description = "Size fraction",
+    branch = branches.sizeFraction,
+    gainbias = objects.sizeFraction,
+    range = objects.sizeFraction,
+    biasMap = Encoder.getMap("unit"),
+    initialBias = 1
+  }
+
+  controls.rl = GainBias {
+    button = "r/l",
+    description = "R/L fraction",
+    branch = branches.rlFraction,
+    gainbias = objects.rlFraction,
+    range = objects.rlFraction,
     biasMap = Encoder.getMap("unit"),
     initialBias = 1
   }
 
   controls.feedback = GainBias {
-    button = "feedback",
+    button = "fdbk",
     description = "Feedback",
     branch = branches.feedback,
     gainbias = objects.feedback,
     range = objects.feedbackRange,
+    biasMap = Encoder.getMap("unit"),
+    initialBias = 1
+  }
+
+  controls.suppression = GainBias {
+    button = "supp",
+    description = "Suppression",
+    branch = branches.suppression,
+    gainbias = objects.suppression,
+    range = objects.suppression,
     biasMap = Encoder.getMap("unit"),
     initialBias = 1
   }
