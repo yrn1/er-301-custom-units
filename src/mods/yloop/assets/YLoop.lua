@@ -83,7 +83,7 @@ function YLoop:onLoadGraph(channelCount)
   suppFBEnv:hardSet("Release Time", 0.200)
   local suppFBLevel = self:addObject("suppFBLevel", app.Multiply())
   local suppFBScale = self:addObject("suppFBScale", app.GainBias())
-  suppFBScale:hardSet("Gain", -2.0)
+  suppFBScale:hardSet("Gain", -5.0)
   suppFBScale:hardSet("Bias", 1.0)
   local suppFB = self:addObject("suppFB", libcore.Clipper(0.0, 1.0))
   local feedbackSupp = self:addObject("feedbackSupp", app.Multiply())
@@ -104,7 +104,7 @@ function YLoop:onLoadGraph(channelCount)
   suppOutEnv:hardSet("Release Time", 0.200)
   local suppOutLevel = self:addObject("suppOutLevel", app.Multiply())
   local suppOutScale = self:addObject("suppOutScale", app.GainBias())
-  suppOutScale:hardSet("Gain", -2.0)
+  suppOutScale:hardSet("Gain", -5.0)
   suppOutScale:hardSet("Bias", 1.0)
   local suppOut = self:addObject("suppOut", libcore.Clipper(0.0, 1.0))
   connect(self, "In1", suppOutIn, "Left")
@@ -162,9 +162,9 @@ function YLoop:onLoadGraph(channelCount)
   connect(outL, "Out", self, "Out1")
   connect(outR, "Out", self, "Out2")
 
-  tie(delay, "Left Delay", "function(t, f) return math.max(0.01, math.floor(48.0 * t * f) / 48.0) end",
+  tie(delay, "Left Delay", "function(t, f) return math.max(0.01, t * f) end",
     stopwatch, "Out", sizeFraction, "Out")
-  tie(delay, "Right Delay", "function(t, f, r, o) return math.max(0.01, math.floor(48.0 * t * f * math.max(o, r)) / 48.0) end",
+  tie(delay, "Right Delay", "function(t, f, r, o) return math.max(0.01, t * f * math.max(o, r)) end",
     stopwatch, "Out", sizeFraction, "Out", rlFraction, "Out", onceCounter, "Value")
 
   connect(feedbackSupp, "Out", delay, "Feedback")
