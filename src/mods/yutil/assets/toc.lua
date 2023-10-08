@@ -51,6 +51,11 @@ return {
       title = "Fixed HPFx4",
       moduleName = "FixedHPFx4",
       keywords = "filter"
+    }, {
+      title = "EQ Sweeps",
+      moduleName = "EQSweeps",
+      keywords = "filter",
+      channelCount = 2
     }
   }
 }
