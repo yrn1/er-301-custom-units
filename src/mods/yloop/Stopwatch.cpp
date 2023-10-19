@@ -21,18 +21,22 @@ namespace yloop
     float *in = mInput.buffer();
     float *out = mOutput.buffer();
     float max = mMax.target();
-    for (uint32_t i = 0; i < globalConfig.frameLength; i++) {
+    for (int i = 0; i < globalConfig.frameLength; i++) {
       if (in[i] > 0.0f) {
         mHighCount++;
-        out[i] = MIN(mHighCount * globalConfig.samplePeriod, max) + 20 * globalConfig.frameLength * globalConfig.samplePeriod;
+        out[i] = MIN(mHighCount * globalConfig.samplePeriod, max);
       } else {
         if (mHighCount > 0) {
-          mTime = MIN(mHighCount * globalConfig.samplePeriod, max) + 20 * globalConfig.frameLength * globalConfig.samplePeriod;
+          mTime = MIN(mHighCount * globalConfig.samplePeriod, max);
           mHighCount = 0;
         }
         out[i] = mTime;
       }
     }
-    mValue.hardSet(out[globalConfig.frameLength - 1]);
+    if (mHighCount > 0) {
+      mValue.hardSet(max);
+    } else {
+      mValue.hardSet(out[globalConfig.frameLength - 1]);      
+    }
   }
 } /* namespace yloop */

@@ -6,9 +6,11 @@
 #undef SWIGLUA
 
 #include <Stopwatch.h>
+#include <Once.h>
 
 #define SWIGLUA
 
 %}
 
 %include <Stopwatch.h>
+%include <Once.h>
