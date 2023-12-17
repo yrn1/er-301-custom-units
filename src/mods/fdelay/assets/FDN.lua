@@ -33,6 +33,7 @@ local Encoder = require "Encoder"
 local libcore = require "core.libcore"
 local Gate = require "Unit.ViewControl.Gate"
 local GainBias = require "Unit.ViewControl.GainBias"
+local Fader = require "Unit.ViewControl.Fader"
 local Utils = require "Utils"
 local Task = require "Unit.MenuControl.Task"
 local MenuHeader = require "Unit.MenuControl.Header"
@@ -62,6 +63,8 @@ function FDN:onLoadGraph(channelCount)
   tie(inLevelL, "Gain", inLevelAdapter, "Out")
   local inLevelR = self:addObject("inLevelR", app.ConstantGain())
   tie(inLevelR, "Gain", inLevelAdapter, "Out")
+
+  local inFilter = self:addObject("inFilter", libcore.StereoFixedHPF())
 
   local xfade = self:addObject("xfade", app.StereoCrossFade())
   local fader = self:createControl("fader", app.GainBias())
@@ -147,12 +150,14 @@ function FDN:onLoadGraph(channelCount)
   local fdnMixR = self:addObject("fdnMixR", app.Sum())
 
   if channelCount == 2 then
-    connect(self, "In1", inLevelL, "In")
-    connect(self, "In2", inLevelR, "In")
+    connect(self, "In1", inFilter, "Left In")
+    connect(self, "In2", inFilter, "Right In")
   else
-    connect(self, "In1", inLevelL, "In")
-    connect(self, "In1", inLevelR, "In")
+    connect(self, "In1", inFilter, "Left In")
+    connect(self, "In1", inFilter, "Right In")
   end
+  connect(inFilter, "Left Out", inLevelL, "In")
+  connect(inFilter, "Right Out", inLevelR, "In")
   connect(inLevelL, "Out", inLMix, "Left")
   connect(inLevelR, "Out", inRMix, "Left")
   connect(inLMix, "Out", eq1, "In")
@@ -240,7 +245,7 @@ end
 function FDN:onLoadViews(objects, branches)
   local controls = {}
   local views = {
-    expanded = {"delay", "feedback", "tone", "mod", "input", "wet"},
+    expanded = {"delay", "feedback", "tone", "mod", "hpf", "input", "wet"},
     collapsed = {}
   }
 
@@ -284,6 +289,15 @@ function FDN:onLoadViews(objects, branches)
     range = objects.modulation,
     biasMap = Encoder.getMap("[0,1]"),
     initialBias = 0.02
+  }
+
+  controls.hpf = Fader {
+    button = "hpf",
+    description = "Input Cutoff Freq",
+    param = objects.inFilter:getParameter("Cutoff"),
+    map = Encoder.getMap("filterFreq"),
+    units = app.unitHertz,
+    scaling = app.octaveScaling
   }
 
   controls.input = GainBias {
